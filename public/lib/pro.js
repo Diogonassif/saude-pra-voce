@@ -266,6 +266,6 @@
   // abas: iniciadas por último, depois de todas as funções existirem
   DC.tabs(['inicio', 'pedidos', 'agenda', 'perfil', 'recebimentos'], (t) => {
     app.innerHTML = '<div class="empty"><span class="spin"></span></div>';
-    ({ inicio, pedidos, agenda, perfil, recebimentos })[t]().catch(DC.erro);
+    return ({ inicio, pedidos, agenda, perfil, recebimentos })[t]().catch(DC.erro);
   });
 })();

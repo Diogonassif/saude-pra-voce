@@ -27,31 +27,78 @@
 
   // ------------------------------------------------------------------ visão geral
   async function visao() {
-    const [pr, cl, ne, ct, din] = await Promise.all([
-      sb.from('pros').select('user_id,publicado,verificado'),
-      sb.from('profiles').select('id').eq('role', 'cliente'),
-      sb.from('necessidades').select('id,status'),
-      sb.from('contratacoes').select('id,status'),
+    const [pr, pf, ne, ct, din] = await Promise.all([
+      sb.from('pros').select('user_id,nome,especialidade,publicado,verificado,coren,coren_status,valor_hora,created_at'),
+      sb.from('profiles').select('id,nome,role,telefone,email,created_at').order('created_at', { ascending: false }),
+      sb.from('necessidades').select('id,codigo,status,especialidade,cliente_nome,cidade,inicio,created_at').order('created_at', { ascending: false }),
+      sb.from('contratacoes').select('id,codigo,status,cliente_nome,pro_nome,especialidade,modalidade,inicio,fim,proposta,created_at,updated_at,contratacao_cliente(total),contratacao_split(pro,debcare,mind)').order('created_at', { ascending: false }).limit(1000),
       dinheiro(),
     ]);
-    const pros = pr.data || [], C = ct.data || [], m = din.meses[mesAtual] || { total: 0, debcare: 0, mind: 0, n: 0 };
-    const abertas = (ne.data || []).filter((n) => ['aberta', 'em_busca'].includes(n.status)).length;
-    const conta = (s) => C.filter((c) => c.status === s).length;
-    app.innerHTML = `<div class="head"><div><h1>Visão geral</h1><p>${mesNome(mesAtual)}</p></div></div>
+    const pros = pr.data || [], P = pf.data || [], N = ne.data || [], C = ct.data || [];
+    const m = din.meses[mesAtual] || { total: 0, debcare: 0, mind: 0, n: 0 };
+    const tot = Object.values(din.meses).reduce((a, x) => ({ total: a.total + x.total, debcare: a.debcare + x.debcare, mind: a.mind + x.mind, n: a.n + x.n }), { total: 0, debcare: 0, mind: 0, n: 0 });
+    const abertas = N.filter((n) => ['aberta', 'em_busca'].includes(n.status));
+    const clientes = P.filter((p) => p.role === 'cliente');
+    const val = (c) => +um(c.contratacao_cliente).total || 0;
+    const conta = (st) => C.filter((c) => c.status === st);
+    const h24 = Date.now() - 864e5, d30 = Date.now() - 30 * 864e5;
+    const corenFila = pros.filter((p) => DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren && p.coren && p.coren_status === 'pendente');
+    const semResposta = conta('solicitado').filter((c) => new Date(c.created_at) < h24 && !c.proposta);
+    const semPagar = conta('aceito');
+    const propostas = C.filter((c) => c.proposta && ['solicitado', 'aceito'].includes(c.status));
+    const recusados = conta('recusado').filter((c) => new Date(c.updated_at) > d30);
+    const semValor = pros.filter((p) => !p.publicado && p.especialidade);
+    const at = [
+      [abertas.length, `pedido(s) na central esperando profissional`, 'central', 'red'],
+      [corenFila.length, 'COREN aguardando conferência', 'profissionais', 'amber'],
+      [semResposta.length, 'pedido(s) sem resposta do profissional há mais de 24h', 'contratacoes:solicitado', 'amber'],
+      [recusados.length, 'pedido(s) recusado(s) nos últimos 30 dias: recomende outro profissional ou outra data', 'contratacoes:recusado', 'amber'],
+      [semPagar.length, 'pedido(s) aceito(s) aguardando o pagamento do contratante', 'contratacoes:aceito', 'blue'],
+      [propostas.length, 'nova(s) data(s) sugerida(s) aguardando o contratante', 'contratacoes', 'blue'],
+      [semValor.length, 'profissional(is) com perfil começado e fora do catálogo', 'profissionais', 'gray'],
+    ].filter((x) => x[0] > 0);
+    const porEsp = Object.entries(DC.ESPEC).map(([k, v]) => [v.nome, pros.filter((p) => p.especialidade === k).length, pros.filter((p) => p.especialidade === k && p.publicado).length, abertas.filter((n) => n.especialidade === k).length]);
+    const pagas = C.filter((c) => ['confirmado', 'concluido'].includes(c.status));
+    const ticket = pagas.length ? pagas.reduce((t, c) => t + val(c), 0) / pagas.length : 0;
+    const conv = C.length ? Math.round(pagas.length / C.length * 100) : 0;
+    const novos30 = P.filter((p) => new Date(p.created_at) > d30);
+    const dt = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const PAPEL = { pro: 'Profissional', cliente: 'Contratante', admin: 'Gestão' };
+
+    app.innerHTML = `<div class="head"><div><h1>Visão geral</h1><p>${mesNome(mesAtual)} · ${C.length} contratação(ões) no total · ${P.length} conta(s)</p></div></div>
       ${alertaMind(din.devido)}
-      ${abertas ? `<a class="banner row" href="#central" style="text-decoration:none;justify-content:space-between"><span><b>${abertas} pedido(s) na central</b> esperando um profissional.</span><span>Abrir →</span></a>` : ''}
+      <div class="card col"><h2>Precisa de atenção</h2>${at.length ? `<div class="list">${at.map(([n, t, go, cor]) => `<button type="button" class="li linha" data-ir="${go}"><span class="tag t-${cor}" style="min-width:34px;text-align:center">${n}</span><span class="grow">${t}</span><span class="mute">Abrir →</span></button>`).join('')}</div>` : '<p class="small mute">Tudo em dia. Nenhuma pendência agora.</p>'}</div>
       <div class="grid2">
-        <div class="card kpi go" data-go="financeiro"><span class="small mute">Pago pelos contratantes no mês</span><div class="v">${brl(m.total, 2)}</div><span class="small mute">${m.n} pagamento(s)</span></div>
-        <div class="card kpi go" data-go="financeiro"><span class="small mute">Saúde Pra Você no mês (15%)</span><div class="v">${brl(m.debcare, 2)}</div><span class="small mute">entra pelo split do Mercado Pago</span></div>
-        <div class="card kpi go" data-go="financeiro"><span class="small mute">Mind no mês (10%)</span><div class="v">${brl(m.mind, 2)}</div><span class="small mute">a repassar pela Saúde Pra Você</span></div>
-        <div class="card kpi go" data-go="profissionais"><span class="small mute">Profissionais</span><div class="v">${pros.length}</div><span class="small mute">${pros.filter((p) => p.publicado).length} no catálogo · ${pros.filter((p) => p.publicado && !p.verificado).length} sem selo</span></div>
-        <div class="card kpi go" data-go="contratantes"><span class="small mute">Contratantes</span><div class="v">${(cl.data || []).length}</div></div>
-        <div class="card kpi go" data-go="central"><span class="small mute">Pedidos na central</span><div class="v">${abertas}</div></div>
+        <div class="card kpi go" data-go="financeiro"><span class="small mute">Pago pelos contratantes no mês</span><div class="v">${brl(m.total, 2)}</div><span class="small mute">${m.n} pagamento(s) · total geral ${brl(tot.total, 2)}</span></div>
+        <div class="card kpi go" data-go="financeiro"><span class="small mute">Saúde Pra Você no mês (15%)</span><div class="v">${brl(m.debcare, 2)}</div><span class="small mute">total geral ${brl(tot.debcare, 2)} · pelo split do Mercado Pago</span></div>
+        <div class="card kpi go" data-go="financeiro"><span class="small mute">Mind no mês (10%)</span><div class="v">${brl(m.mind, 2)}</div><span class="small mute">a repassar agora: ${brl(Math.max(din.devido, 0), 2)}</span></div>
+        <div class="card kpi go" data-go="contratacoes"><span class="small mute">Ticket médio</span><div class="v">${brl(ticket, 2)}</div><span class="small mute">${pagas.length} paga(s) · conversão ${conv}% dos pedidos</span></div>
+        <div class="card kpi go" data-go="profissionais"><span class="small mute">Profissionais</span><div class="v">${pros.length}</div><span class="small mute">${pros.filter((p) => p.publicado).length} no catálogo · ${pros.filter((p) => p.verificado).length} com selo · ${corenFila.length} COREN a conferir</span></div>
+        <div class="card kpi go" data-go="contratantes"><span class="small mute">Contratantes</span><div class="v">${clientes.length}</div><span class="small mute">${new Set(pagas.map((c) => c.cliente_nome)).size} já pagaram · ${novos30.filter((p) => p.role === 'cliente').length} novo(s) em 30 dias</span></div>
+        <div class="card kpi go" data-go="central"><span class="small mute">Pedidos na central</span><div class="v">${abertas.length}</div><span class="small mute">${N.length} no total · ${N.filter((n) => n.status === 'atendida').length} atendido(s)</span></div>
       </div>
-      <div class="card col"><h2>Funil de contratações</h2><div class="grid2">${Object.keys(DC.STATUS).map((s) => `<button type="button" class="row go linha" data-fst="${s}"><span class="grow">${DC.stTag(s)}</span><b>${conta(s)}</b></button>`).join('')}</div><p class="tiny mute">Toque num card ou num status para ver os detalhes.</p></div>`;
+      <div class="card col"><h2>Funil de contratações</h2><div class="grid2">${Object.keys(DC.STATUS).map((st) => { const L = conta(st); return `<button type="button" class="row go linha" data-fst="${st}"><span class="grow">${DC.stTag(st)}</span><span style="text-align:right"><b>${L.length}</b><br><span class="tiny mute">${brl(L.reduce((t, c) => t + val(c), 0), 2)}</span></span></button>`; }).join('')}</div></div>
+      <div class="split"><div class="main">
+        <div class="card col"><h2>Últimas contratações</h2>${C.length ? `<div class="list small">${C.slice(0, 8).map((c) => `<button type="button" class="li linha" data-abre="${c.id}"><span class="grow"><b>#${c.codigo}</b> ${esc(c.cliente_nome)} → ${esc(c.pro_nome)}<br><span class="mute">${esc(DC.espec(c.especialidade))} · ${DC.periodo(c)} · pedido em ${dt(c.created_at)}</span></span><span style="text-align:right">${DC.stTag(c.status)}<br><b>${brl(val(c), 2)}</b></span></button>`).join('')}</div>` : '<p class="small mute">Nenhuma contratação ainda.</p>'}</div>
+        <div class="card col"><h2>Pedidos na central</h2>${abertas.length ? `<div class="list small">${abertas.slice(0, 6).map((n) => `<button type="button" class="li linha" data-ir="central"><span class="grow"><b>#${n.codigo}</b> ${esc(n.cliente_nome)} · ${esc(DC.espec(n.especialidade))}<br><span class="mute">${esc(n.cidade || '')}${n.inicio ? ' · início ' + DC.data(n.inicio) : ''} · aberto em ${dt(n.created_at)}</span></span><span class="tag t-amber">${n.status === 'em_busca' ? 'EM BUSCA' : 'ABERTO'}</span></button>`).join('')}</div>` : '<p class="small mute">Nenhum pedido aberto.</p>'}</div>
+      </div><div class="side">
+        <div class="card col"><h2>Novos cadastros</h2>${P.length ? `<div class="list small">${P.slice(0, 8).map((p) => `<button type="button" class="li linha" data-conta="${p.id}" data-role="${p.role || ''}"><span class="grow"><b>${esc(p.nome)}</b><br><span class="mute">${esc(PAPEL[p.role] || 'Sem perfil ainda')} · ${esc(DC.telBonito(p.telefone))}</span></span><span class="mute">${dt(p.created_at)}</span></button>`).join('')}</div>` : '<p class="small mute">Ninguém ainda.</p>'}</div>
+        <div class="card col"><h2>Profissionais por tipo</h2><div class="list small">${porEsp.map(([n, t, pub, ped]) => `<div class="li"><span class="grow">${esc(n)}</span><span style="text-align:right"><b>${pub}</b> no catálogo de ${t}${ped ? `<br><span class="tag t-amber">${ped} pedido(s) na central</span>` : ''}</span></div>`).join('')}</div></div>
+      </div></div>`;
     $$('[data-go]').forEach((b) => (b.onclick = () => { location.hash = b.dataset.go; }));
-    $$('[data-fst]').forEach((b) => (b.onclick = () => { filtroStatus = b.dataset.fst; location.hash === '#contratacoes' ? contratacoes() : (location.hash = 'contratacoes'); }));
+    const irPara = (go) => { const [tab, st] = go.split(':'); if (st) filtroStatus = st; if (location.hash === '#' + tab) ({ contratacoes, profissionais, central })[tab](); else location.hash = tab; };
+    $$('[data-ir]').forEach((b) => (b.onclick = () => irPara(b.dataset.ir)));
+    $$('[data-fst]').forEach((b) => (b.onclick = () => irPara('contratacoes:' + b.dataset.fst)));
+    $$('[data-abre]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.abre, 'admin', visao)));
+    $$('[data-conta]').forEach((b) => (b.onclick = async () => {
+      const id = b.dataset.conta, role = b.dataset.role;
+      if (role === 'pro') {
+        const [{ data: p }, { data: x }] = await Promise.all([sb.from('pros').select('*').eq('user_id', id).maybeSingle(), sb.from('pro_privado').select('*').eq('user_id', id).maybeSingle()]);
+        detalhePro(p, x || {}, (P.find((y) => y.id === id) || {}).telefone);
+      } else detalheCli(P.find((y) => y.id === id));
+    }));
   }
+
 
   // ------------------------------------------------------------------ central (necessidades)
   async function central() {
@@ -228,7 +275,7 @@
       sb.from('avaliacoes').select('nota,comentario,created_at').eq('pro_id', p.user_id).order('created_at', { ascending: false }).limit(20),
     ]);
     const C = ct.data || [], A = av.data || [];
-    const preco = (v) => (v ? `${brl(v, 2)} → contratante paga ${brl(Math.round(v * (1 + ((+(DC.cfg.taxa_debcare ?? 15)) + (+(DC.cfg.taxa_mind ?? 10))) / 100)), 2)}` : '');
+    const preco = (v) => (v ? `${brl(v, 2)} → contratante paga ${brl(Math.round(v * (1 + ((+(DC.cfg.taxa_debcare ?? 15)) + (+(DC.cfg.taxa_mind ?? 10))) / 100) * 100) / 100, 2)}` : '');
     const docs = [['doc_identidade', 'Identidade'], ['doc_coren', 'Carteira do COREN'], ['doc_antecedentes', 'Antecedentes']].map(([k, n]) => x[k] ? `<button class="btn btn-sm btn-ghost" data-doc2="${esc(x[k])}">${n}</button>` : `<span class="tag t-gray">${n}: pendente</span>`).join(' ');
     const m = DC.modal(`<h2>${esc(p.nome)}</h2>
       <div class="row">${p.publicado ? '<span class="tag t-green">NO CATÁLOGO</span>' : '<span class="tag t-amber">FORA DO CATÁLOGO</span>'}${p.verificado ? '<span class="selo">✓ Selo</span>' : ''}${DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren ? (p.coren_status === 'ativo' ? '<span class="tag t-green">COREN ATIVO</span>' : p.coren_status === 'irregular' ? '<span class="tag t-red">COREN IRREGULAR</span>' : '<span class="tag t-amber">COREN A CONFERIR</span>') : ''}</div>
@@ -323,6 +370,6 @@
   // abas: iniciadas por último, depois de todas as funções existirem
   DC.tabs(['visao', 'central', 'contratacoes', 'profissionais', 'contratantes', 'financeiro', 'config'], (t) => {
     app.innerHTML = '<div class="empty"><span class="spin"></span></div>';
-    ({ visao, central, contratacoes, profissionais, contratantes, financeiro, config })[t]().catch(DC.erro);
+    return ({ visao, central, contratacoes, profissionais, contratantes, financeiro, config })[t]().catch(DC.erro);
   });
 })();

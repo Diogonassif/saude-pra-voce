@@ -6,7 +6,7 @@
   const box = document.getElementById('previa');
   if (!box || !window.supabase || !window.DC || /SEU-PROJETO/.test(window.DC.url)) return;
   const ESP = { cuidador: 'Cuidador(a)', tecnico: 'Técnico(a) de enfermagem', enfermeiro: 'Enfermeiro(a)', acompanhante: 'Acompanhante hospitalar' };
-  const brl = (v) => 'R$ ' + (+v).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const brl = (v) => 'R$ ' + (+v).toLocaleString('pt-BR', { minimumFractionDigits: (+v % 1) ? 2 : 0, maximumFractionDigits: 2 });
   window.supabase.createClient(window.DC.url, window.DC.key).rpc('catalogo').then(({ data }) => {
     const L = (data || []).slice(0, 6);
     if (!L.length) return;

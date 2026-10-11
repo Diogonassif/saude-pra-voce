@@ -254,6 +254,6 @@
   // abas: iniciadas por último, depois de todas as funções existirem
   DC.tabs(['catalogo', 'contratacoes', 'ajuda', 'conta'], (t) => {
     app.innerHTML = '<div class="empty"><span class="spin"></span></div>';
-    ({ catalogo, contratacoes, ajuda, conta })[t]().catch(DC.erro);
+    return ({ catalogo, contratacoes, ajuda, conta })[t]().catch(DC.erro);
   });
 })();

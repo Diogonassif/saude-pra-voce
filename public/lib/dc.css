@@ -201,3 +201,6 @@ button.linha:hover { background: #F3F8F8; }
 .dl > div { display: flex; flex-direction: column; gap: 2px; }
 .dl span { font-size: 12px; color: var(--mute); }
 .dl b { font-size: 14px; font-weight: 600; word-break: break-word; }
+
+.voltar { align-self: flex-start; background: none; border: 0; padding: 4px 0; margin-bottom: 4px; font: inherit; font-weight: 700; font-size: 15px; color: var(--green, #1F8F78); cursor: pointer; }
+.voltar:hover { text-decoration: underline; }

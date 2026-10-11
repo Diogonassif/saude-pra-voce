@@ -69,6 +69,27 @@ async function criarContratacao(b, clienteId, origem, necessidadeId) {
   return { c, v };
 }
 
+// recalcula dias, quantidade e valores de uma contratação para um novo período (mesmo profissional e modalidade)
+async function replanejar(c, inicio, fim, horario) {
+  inicio = dataOk(inicio); fim = dataOk(fim) || inicio;
+  if (!inicio) throw fail(400, 'Informe a nova data de início');
+  if (inicio < hoje()) throw fail(400, 'A nova data já passou');
+  if (fim < inicio) throw fail(400, 'O fim precisa ser depois do início');
+  if ((new Date(fim) - new Date(inicio)) / 864e5 > 180) throw fail(400, 'No máximo 6 meses por vez');
+  const pro = await one(`pros?user_id=eq.${c.pro_id}&select=user_id,nome,${MODAL[c.modalidade].campo}`);
+  const base = pro ? +pro[MODAL[c.modalidade].campo] : 0;
+  if (!(base > 0)) throw fail(409, 'O profissional não tem mais valor para esta modalidade');
+  const dias = diasDoPeriodo(inicio, fim, c.dias_semana && c.dias_semana.length ? c.dias_semana : [0, 1, 2, 3, 4, 5, 6]);
+  if (!dias.length) throw fail(400, 'Nenhum dia do novo período cai nos dias da semana do pedido');
+  const ag = await admin(`agenda?pro_id=eq.${c.pro_id}&dia=gte.${inicio}&dia=lte.${fim}&status=in.(off,alocado)&select=dia&order=dia`);
+  const choque = (ag || []).find((a) => dias.includes(a.dia));
+  if (choque) throw fail(409, `${pro.nome.split(' ')[0]} não está disponível em ${choque.dia.split('-').reverse().join('/')}`);
+  const quantidade = c.modalidade === 'hora' ? dias.length * c.horas_dia : dias.length;
+  const t = await taxas();
+  const v = calcular(base, quantidade, t);
+  return { inicio, fim, horario: horaOk(horario) || c.horario, dias: dias.length, quantidade, v, t };
+}
+
 export default handler(async (req, res) => {
   if (req.method !== 'POST') return send(res, 405, { error: 'use POST' });
   const me = await who(req);
@@ -156,6 +177,67 @@ export default handler(async (req, res) => {
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'concluido', concluido_em: agora(), updated_at: agora() } });
     if (!ehCli) sendEmail({ to: await emailDe(c.cliente_id), subject: 'Atendimento concluído · avalie', html: shell('Atendimento concluído', `<p>Conte como foi com ${escH(c.pro_nome.split(' ')[0])}. Sua avaliação ajuda outras famílias.</p>`, { url: url + '/cliente.html#contratacoes', label: 'Avaliar' }) });
     return send(res, 200, { ok: true });
+  }
+
+  // ------------------------------------------------------------ sugerir outra data (profissional ou central)
+  if (b.acao === 'propor_data') {
+    if (!(ehPro || me.isAdmin)) throw fail(403, 'Só o profissional ou a central sugerem outra data');
+    if (!['solicitado', 'aceito', 'recusado'].includes(c.status)) throw fail(409, 'Esta contratação não aceita mudança de data');
+    const plano = await replanejar(c, b.inicio, b.fim, b.horario);   // valida datas e agenda já agora
+    const proposta = { por: ehPro ? 'pro' : 'central', inicio: plano.inicio, fim: plano.fim, horario: plano.horario, nota: txt(b.nota, 300), em: agora(),
+      total_cliente: plano.v.cliente };
+    const body = { proposta, updated_at: agora() };
+    if (c.status === 'recusado') { body.status = 'solicitado'; body.motivo = ''; }
+    await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body });
+    const dt = (d) => d.split('-').reverse().join('/');
+    sendEmail({ to: await emailDe(c.cliente_id), subject: `Nova data sugerida para o seu atendimento #${c.codigo}`,
+      html: shell('Sugestão de nova data', `<p>${ehPro ? escH(c.pro_nome.split(' ')[0]) : 'A nossa central'} sugeriu <b>${dt(plano.inicio)}${plano.fim !== plano.inicio ? ' a ' + dt(plano.fim) : ''}</b>${plano.horario ? ' a partir das ' + plano.horario.slice(0, 5) : ''}. Novo total: <b>${brl(plano.v.cliente)}</b>.</p>${proposta.nota ? '<p>' + escH(proposta.nota) + '</p>' : ''}`,
+        { url: url + '/cliente.html#contratacoes', label: 'Aceitar ou recusar' }) });
+    return send(res, 200, { ok: true, total_cliente: plano.v.cliente });
+  }
+
+  // ------------------------------------------------------------ contratante responde à nova data
+  if (b.acao === 'aceitar_data' || b.acao === 'recusar_data') {
+    if (!(ehCli || me.isAdmin)) throw fail(403, 'Só o contratante responde à nova data');
+    const p = c.proposta;
+    if (!p) throw fail(409, 'Não há nova data para responder');
+    if (b.acao === 'recusar_data') {
+      await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { proposta: null, updated_at: agora() } });
+      sendEmail({ to: await emailDe(c.pro_id), subject: `Nova data não aceita · #${c.codigo}`, html: shell('Nova data não aceita', `<p>${escH(c.cliente_nome)} preferiu manter o pedido original.</p>`) });
+      return send(res, 200, { ok: true });
+    }
+    if (!['solicitado', 'aceito'].includes(c.status)) throw fail(409, 'Esta contratação não aceita mudança de data');
+    const plano = await replanejar(c, p.inicio, p.fim, p.horario);
+    await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: {
+      inicio: plano.inicio, fim: plano.fim, horario: plano.horario, dias: plano.dias, quantidade: plano.quantidade, proposta: null,
+      status: p.por === 'pro' ? 'aceito' : 'solicitado', aceito_em: p.por === 'pro' ? agora() : null, updated_at: agora() } });
+    await Promise.all([
+      admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: plano.v.unitPro, total: plano.v.pro } }),
+      admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: plano.v.unitCli, total: plano.v.cliente } }),
+      admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { taxa_debcare_pct: plano.t.debcare, taxa_mind_pct: plano.t.mind, pro: plano.v.pro, debcare: plano.v.debcare, mind: plano.v.mind } }),
+    ]);
+    sendEmail({ to: await emailDe(c.pro_id), subject: `Nova data aceita · #${c.codigo}`,
+      html: shell('Nova data aceita', `<p>${escH(c.cliente_nome)} aceitou a nova data. ${p.por === 'pro' ? 'Agora é só aguardar o pagamento.' : 'Confira e responda ao pedido.'}</p>`, { url: url + '/pro.html#pedidos', label: 'Ver pedido' }) });
+    return send(res, 200, { ok: true, status: p.por === 'pro' ? 'aceito' : 'solicitado', total_cliente: plano.v.cliente });
+  }
+
+  // ------------------------------------------------------------ central recomenda outro profissional
+  if (b.acao === 'trocar_pro') {
+    if (!me.isAdmin) throw fail(403, 'Só a central');
+    if (!['solicitado', 'aceito', 'recusado'].includes(c.status)) throw fail(409, 'Esta contratação não pode mais trocar de profissional');
+    if (b.pro_id === c.pro_id) throw fail(400, 'Escolha um profissional diferente');
+    const { c: nova, v } = await criarContratacao({
+      pro_id: b.pro_id, modalidade: c.modalidade, inicio: dataOk(b.inicio) || c.inicio, fim: dataOk(b.fim) || c.fim, horario: b.horario || c.horario,
+      dias_semana: c.dias_semana, horas_dia: c.horas_dia, local_tipo: c.local_tipo, endereco: c.endereco, cidade: c.cidade,
+      paciente_nome: c.paciente_nome, paciente_idade: c.paciente_idade, cuidados: c.cuidados, notas: c.notas,
+    }, c.cliente_id, 'central', c.necessidade_id);
+    if (c.status !== 'recusado') await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'cancelado', motivo: `Substituído pela central pelo pedido #${nova.codigo}`, updated_at: agora() } });
+    if (c.necessidade_id) await admin(`necessidades?id=eq.${c.necessidade_id}&status=neq.cancelada`, { method: 'PATCH', body: { status: 'em_busca', updated_at: agora() } });
+    sendEmail({ to: await emailDe(nova.pro_id), subject: `A nossa central indicou você: ${resumo(nova)}`,
+      html: shell('Novo pedido pela central', `<p>${escH(resumo(nova))} · você recebe <b>${brl(v.pro)}</b>.</p>`, { url: url + '/pro.html#pedidos', label: 'Ver e responder' }) });
+    sendEmail({ to: await emailDe(c.cliente_id), subject: `Indicamos outro profissional · #${nova.codigo}`,
+      html: shell('Outro profissional para você', `<p>${escH(nova.pro_nome.split(' ')[0])} recebeu o seu pedido (${escH(resumo(nova))}). Total: <b>${brl(v.cliente)}</b>. Avisamos quando aceitar.</p>`, { url: url + '/cliente.html#contratacoes', label: 'Acompanhar' }) });
+    return send(res, 200, { ok: true, id: nova.id, codigo: nova.codigo, total_cliente: v.cliente });
   }
 
   throw fail(400, 'Ação desconhecida');

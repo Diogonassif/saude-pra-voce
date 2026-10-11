@@ -107,12 +107,26 @@
   };
   // abas por hash (#aba)
   DC.tabs = (names, render) => {
+    let anterior = null;
     const go = () => {
       const h = (location.hash || '').slice(1) || names[0];
       const t = names.includes(h) ? h : names[0];
       DC.$$('[data-tab]').forEach((a) => a.classList.toggle('on', a.dataset.tab === t));
+      veio = anterior; anterior = t; atual = t;
       render(t);
+      poeVoltar();
     };
+    // botão Voltar nas telas que não são a inicial (volta à tela anterior do app, ou à inicial);
+    // reaparece sozinho quando a tela se redesenha
+    let veio = null, atual = null;
+    const poeVoltar = () => {
+      const app = DC.$('#app');
+      if (!app || atual === names[0] || app.querySelector('.empty .spin') || DC.$('#voltar')) return;
+      app.insertAdjacentHTML('afterbegin', `<button type="button" class="voltar" id="voltar">← Voltar</button>`);
+      DC.$('#voltar').onclick = () => { if (veio && veio !== atual) history.back(); else location.hash = names[0]; };
+    };
+    const appEl = DC.$('#app');
+    if (appEl) new MutationObserver(poeVoltar).observe(appEl, { childList: true });
     window.addEventListener('hashchange', go); go();
   };
   DC.marca = (sub) => `<span class="mk" aria-hidden="true"><svg viewBox="0 0 64 64" width="30" height="30"><rect x="1" y="1" width="62" height="62" rx="15" fill="#0E2B36" stroke="rgba(255,255,255,.22)" stroke-width="2"/><path d="M32 50C18 41 12 33 12 25c0-6.5 5-11 10.8-11 4.2 0 7.4 2.4 9.2 5.6C33.8 16.4 37 14 41.2 14 47 14 52 18.5 52 25c0 8-6 16-20 25z" fill="#2BB59A"/><path d="M32 25v12M26 31h12" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg></span><span class="wm">Saúde <b>Pra Você</b></span>${sub ? `<small>${DC.esc(sub)}</small>` : ''}`;
