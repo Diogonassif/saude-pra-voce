@@ -93,7 +93,7 @@
     while (cel.length % 7) cel.push(null);
     const sem = []; for (let i = 0; i < cel.length; i += 7) sem.push(cel.slice(i, i + 7));
     const curto = (d) => { const [, m, dd] = d.split('-'); return `${+dd} ${MES[+m - 1]}`; };
-    return `<div class="cal">
+    return `<div class="calw">
       <div class="cal-h"><span></span>${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((x) => `<span>${x}</span>`).join('')}</div>
       ${sem.map((w) => { const v = w.filter(Boolean); return `<div class="cal-w"><span class="cal-l">${v.length > 1 ? `${curto(v[0][0])}<br>a ${curto(v[v.length - 1][0])}` : curto(v[0][0])}</span>${w.map((x) => x
         ? `<span class="cal-d d-${x[1] === 'vazio' ? 'livre' : x[1]}${x[1] === 'vazio' ? ' leve' : ''}" title="${DC.data(x[0])} · ${NOME[x[1]] || ''}">${+x[0].slice(8)}</span>`

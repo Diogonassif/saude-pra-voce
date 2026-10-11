@@ -83,42 +83,99 @@
 
   // ------------------------------------------------------------------ agenda
   let mesRef = DC.hoje().slice(0, 7);
+  const NOMEST = { vazio: 'Sem marcação', livre: 'Disponível', parcial: 'Parcial', off: 'Folga', alocado: 'Ocupado' };
+  const dIso = (dt) => dt.toISOString().slice(0, 10);
+  const somaDias = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return dIso(d); };
+  async function salvaDias(dias, status) {   // status null = limpar (volta a "sem marcação")
+    const hoje = DC.hoje();
+    const { data: oc } = await sb.from('agenda').select('dia').eq('pro_id', me.id).eq('status', 'alocado').in('dia', dias);
+    const ocup = new Set((oc || []).map((x) => x.dia));
+    const alvo = dias.filter((d) => d >= hoje && !ocup.has(d));
+    for (let k = 0; k < alvo.length; k += 200) {
+      const lote = alvo.slice(k, k + 200);
+      const { error } = status ? await sb.from('agenda').upsert(lote.map((dia) => ({ pro_id: me.id, dia, status })))
+        : await sb.from('agenda').delete().eq('pro_id', me.id).neq('status', 'alocado').in('dia', lote);
+      if (error) throw error;
+    }
+    return { feitos: alvo.length, ocupados: dias.filter((d) => ocup.has(d)).length };
+  }
   async function agenda() {
     const [y, mo] = mesRef.split('-').map(Number);
     const ini = `${mesRef}-01`, fimD = new Date(Date.UTC(y, mo, 0)).getUTCDate(), fim = `${mesRef}-${String(fimD).padStart(2, '0')}`;
-    const { data, error } = await sb.from('agenda').select('dia,status').eq('pro_id', me.id).gte('dia', ini).lte('dia', fim);
-    if (error) throw error;
-    const st = Object.fromEntries((data || []).map((d) => [d.dia, d.status]));
-    const first = new Date(Date.UTC(y, mo - 1, 1)).getUTCDay();
-    const nomeMes = new Date(Date.UTC(y, mo - 1, 15)).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const hoje = DC.hoje();
+    const [ag, ct] = await Promise.all([
+      sb.from('agenda').select('dia,status').eq('pro_id', me.id).gte('dia', ini).lte('dia', fim),
+      sb.from('contratacoes').select('id,codigo,cliente_nome,inicio,fim,horario,modalidade,status,dias_semana,local_tipo,cidade').eq('pro_id', me.id).in('status', ['solicitado', 'aceito', 'confirmado']).gte('fim', hoje).order('inicio'),
+    ]);
+    if (ag.error) throw ag.error;
+    const st = Object.fromEntries((ag.data || []).map((d) => [d.dia, d.status]));
+    const C = ct.data || [];
+    const pedidosNoDia = (dia) => C.filter((c) => c.inicio <= dia && c.fim >= dia && (!(c.dias_semana || []).length || c.dias_semana.includes(new Date(dia + 'T12:00:00Z').getUTCDay())));
+    const first = (new Date(Date.UTC(y, mo - 1, 1)).getUTCDay() + 6) % 7;   // semana começa na segunda
+    const nomeMes0 = new Date(Date.UTC(y, mo - 1, 15)).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const nomeMes = nomeMes0[0].toUpperCase() + nomeMes0.slice(1);
     const cells = [];
     for (let i = 0; i < first; i++) cells.push('<span></span>');
+    const cont = { livre: 0, parcial: 0, off: 0, alocado: 0, vazio: 0 };
     for (let d = 1; d <= fimD; d++) {
       const dia = `${mesRef}-${String(d).padStart(2, '0')}`; const s = st[dia] || 'vazio';
-      cells.push(`<button type="button" class="d-${s}" data-d="${dia}" ${s === 'alocado' || dia < DC.hoje() ? 'disabled' : ''} aria-label="${d}, ${s === 'vazio' ? 'sem marcação' : s}">${d}</button>`);
+      if (dia >= hoje) cont[s]++;
+      const ped = pedidosNoDia(dia).filter((c) => c.status !== 'confirmado').length;
+      cells.push(`<button type="button" class="d-${s}${dia === hoje ? ' hoje' : ''}" data-d="${dia}" ${dia < hoje ? 'disabled' : ''} aria-label="${d}, ${NOMEST[s]}">${d}${ped ? '<i class="pin" title="pedido aguardando"></i>' : ''}</button>`);
     }
+    const proximos = C.filter((c) => c.status === 'confirmado').slice(0, 8);
+    const pend = C.filter((c) => c.status !== 'confirmado');
     app.innerHTML = `
-      <div class="head"><div><h1>Agenda</h1><p>Toque no dia para marcar disponível, parcial ou folga. Dias contratados ficam como ocupados. Dias de folga bloqueiam pedidos.</p></div></div>
-      <div class="card col" style="max-width:640px">
-        <div class="row"><button class="btn btn-sm btn-ghost" id="ant" aria-label="Mês anterior">←</button><h2 class="grow" style="text-align:center;text-transform:capitalize">${esc(nomeMes)}</h2><button class="btn btn-sm btn-ghost" id="prox" aria-label="Próximo mês">→</button></div>
-        <div class="cal">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((x) => `<span class="dw">${x}</span>`).join('')}${cells.join('')}</div>
-        <div class="leg"><span><i class="d-livre"></i>Disponível</span><span><i class="d-parcial"></i>Parcial</span><span><i class="d-off"></i>Folga</span><span><i class="d-alocado"></i>Ocupado</span></div>
-        <div class="row"><button class="btn btn-sm btn-ghost" id="todos">Marcar o mês todo como disponível</button></div>
-      </div>`;
-    const ciclo = { vazio: 'livre', livre: 'parcial', parcial: 'off', off: 'livre' };
-    $$('[data-d]').forEach((b) => (b.onclick = async () => {
-      const atual = (b.className.match(/d-(\w+)/) || [])[1] || 'vazio'; const novo = ciclo[atual] || 'livre';
-      b.className = 'd-' + novo;
-      const { error: e } = await sb.from('agenda').upsert({ pro_id: me.id, dia: b.dataset.d, status: novo });
-      if (e) { DC.erro(e); b.className = 'd-' + atual; }
+      <div class="head"><div><h1>Agenda</h1><p>Toque num dia para marcar <b>disponível</b>, <b>parcial</b> ou <b>folga</b>. Dias de folga bloqueiam novos pedidos. Dias contratados e pagos ficam como <b>ocupados</b>.</p></div></div>
+      <div class="split"><div class="main">
+        <div class="card col">
+          <div class="row"><button class="btn btn-sm btn-ghost" id="ant" aria-label="Mês anterior">←</button><h2 class="grow" style="text-align:center">${esc(nomeMes)}</h2><button class="btn btn-sm btn-ghost" id="prox" aria-label="Próximo mês">→</button></div>
+          <div class="cal">${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((x) => `<span class="dw">${x}</span>`).join('')}${cells.join('')}</div>
+          <div class="leg"><span><i class="d-livre"></i>Disponível</span><span><i class="d-parcial"></i>Parcial</span><span><i class="d-off"></i>Folga</span><span><i class="d-alocado"></i>Ocupado</span><span><i class="d-vazio"></i>Sem marcação</span><span><i class="pin" style="position:static"></i>Pedido aguardando</span></div>
+          <p class="small mute">Neste mês, a partir de hoje: ${cont.livre} disponível(is) · ${cont.parcial} parcial(is) · ${cont.off} folga(s) · ${cont.alocado} ocupado(s) · ${cont.vazio} sem marcação.</p>
+          <div class="row"><button class="btn btn-sm btn-ghost" id="todos">Marcar o mês todo como disponível</button><button class="btn btn-sm btn-ghost" id="limpaMes">Limpar o mês</button></div>
+        </div>
+        <div class="card col"><h2>Atendimentos confirmados</h2>${proximos.length ? `<div class="list small">${proximos.map((c) => `<button class="li linha" data-c="${c.id}"><span class="grow"><b>${DC.periodo(c)}</b>${c.horario ? ' · ' + c.horario.slice(0, 5) : ''}<br><span class="mute">${esc(c.cliente_nome)} · ${esc(DC.MODAL[c.modalidade].nome)} · ${esc(DC.LOCAL[c.local_tipo] || '')}${c.cidade ? ', ' + esc(c.cidade) : ''}</span></span>${DC.stTag(c.status)}</button>`).join('')}</div>` : '<p class="small mute">Nenhum atendimento confirmado pela frente.</p>'}
+          ${pend.length ? `<h3>Pedidos aguardando</h3><div class="list small">${pend.map((c) => `<button class="li linha" data-c="${c.id}"><span class="grow"><b>${DC.periodo(c)}</b> · ${esc(c.cliente_nome)}</span>${DC.stTag(c.status)}</button>`).join('')}</div>` : ''}</div>
+      </div><div class="side">
+        <div class="card col"><h2>Bloquear um período</h2><p class="small mute">Férias, viagem ou outro trabalho. Os dias viram folga e ninguém consegue pedir nesse período.</p>
+          <div class="grid2"><label class="f">De<input class="in" type="date" id="bI" min="${hoje}" value="${hoje}"></label><label class="f">Até<input class="in" type="date" id="bF" min="${hoje}" value="${somaDias(hoje, 6)}"></label></div>
+          <div class="row"><button class="btn btn-sm" id="bloq">Bloquear</button><button class="btn btn-sm btn-ghost" id="liberaP">Marcar como disponível</button><button class="btn btn-sm btn-ghost" id="limpaP">Limpar</button></div></div>
+        <div class="card col"><h2>Folga fixa na semana</h2><p class="small mute">Os dias da semana em que você não trabalha. Marcamos como folga nas próximas semanas.</p>
+          <div class="chips" id="fsem">${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((n, k) => `<button type="button" class="chip off" data-w="${k}">${n}</button>`).join('')}</div>
+          <label class="f">Por quanto tempo<select class="in" id="fN"><option value="4">4 semanas</option><option value="8">8 semanas</option><option value="13" selected>3 meses</option><option value="26">6 meses</option></select></label>
+          <div class="row"><button class="btn btn-sm" id="fixa">Aplicar folga fixa</button><button class="btn btn-sm btn-ghost" id="dispSem">Disponível nos outros dias</button></div></div>
+      </div></div>`;
+
+    $$('[data-d]').forEach((b) => (b.onclick = () => {
+      const dia = b.dataset.d, s = st[dia] || 'vazio';
+      if (s === 'alocado') { const c = pedidosNoDia(dia).find((x) => x.status === 'confirmado'); if (c) DC.abrirContratacao(c.id, 'pro', agenda); else DC.toast('Dia ocupado por um atendimento'); return; }
+      const peds = pedidosNoDia(dia);
+      const mm = DC.modal(`<h2>${DC.data(dia)} · ${new Date(dia + 'T12:00:00Z').toLocaleDateString('pt-BR', { weekday: 'long', timeZone: 'UTC' })}</h2><p class="small mute">Agora: <b>${NOMEST[s]}</b></p>
+        ${peds.length ? `<div class="banner info">Há ${peds.length} pedido(s) neste dia. ${peds.map((c) => `<button class="link" data-pc="${c.id}">#${c.codigo} · ${esc(c.cliente_nome)}</button>`).join(' ')}</div>` : ''}
+        <div class="grid2"><button class="opt ${s === 'livre' ? 'on' : ''}" data-s="livre"><b>Disponível</b><span>Pode receber pedidos o dia todo</span></button><button class="opt ${s === 'parcial' ? 'on' : ''}" data-s="parcial"><b>Parcial</b><span>Só parte do dia</span></button>
+          <button class="opt ${s === 'off' ? 'on' : ''}" data-s="off"><b>Folga</b><span>Não recebe pedidos neste dia</span></button><button class="opt ${s === 'vazio' ? 'on' : ''}" data-s=""><b>Sem marcação</b><span>Limpa o dia</span></button></div>
+        <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button></div>`);
+      $$('[data-s]', mm.el).forEach((x) => (x.onclick = () => DC.busy(x, async () => { await salvaDias([dia], x.dataset.s || null); mm.close(); agenda(); })));
+      $$('[data-pc]', mm.el).forEach((x) => (x.onclick = () => { mm.close(); DC.abrirContratacao(x.dataset.pc, 'pro', agenda); }));
     }));
+    $$('[data-c]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.c, 'pro', agenda)));
     $('#ant').onclick = () => { const d = new Date(Date.UTC(y, mo - 2, 1)); mesRef = d.toISOString().slice(0, 7); agenda(); };
     $('#prox').onclick = () => { const d = new Date(Date.UTC(y, mo, 1)); mesRef = d.toISOString().slice(0, 7); agenda(); };
-    $('#todos').onclick = () => DC.busy($('#todos'), async () => {
-      const rows = [];
-      for (let d = 1; d <= fimD; d++) { const dia = `${mesRef}-${String(d).padStart(2, '0')}`; if (dia >= DC.hoje() && st[dia] !== 'alocado' && st[dia] !== 'off') rows.push({ pro_id: me.id, dia, status: 'livre' }); }
-      if (rows.length) { const { error: e } = await sb.from('agenda').upsert(rows); if (e) throw e; } agenda();
-    });
+    const mesTodo = () => { const L = []; for (let d = 1; d <= fimD; d++) L.push(`${mesRef}-${String(d).padStart(2, '0')}`); return L; };
+    const periodo = () => { const a = $('#bI').value, b = $('#bF').value || a; if (!a) throw new Error('Escolha a data de início'); if (b < a) throw new Error('O fim precisa ser depois do início');
+      const L = []; for (let d = a; d <= b && L.length < 370; d = somaDias(d, 1)) L.push(d); return L; };
+    const aviso = (r, txt) => DC.toast(`${r.feitos} dia(s) ${txt}${r.ocupados ? ` · ${r.ocupados} dia(s) ocupado(s) ficaram como estavam` : ''}`);
+    $('#todos').onclick = () => DC.busy($('#todos'), async () => { const L = mesTodo().filter((d) => st[d] !== 'off'); aviso(await salvaDias(L, 'livre'), 'disponível(is)'); agenda(); });
+    $('#limpaMes').onclick = () => DC.busy($('#limpaMes'), async () => { if (!(await DC.confirm('Limpar todas as marcações do mês (menos os dias ocupados)?', 'Limpar'))) return; aviso(await salvaDias(mesTodo(), null), 'limpo(s)'); agenda(); });
+    $('#bloq').onclick = () => DC.busy($('#bloq'), async () => { aviso(await salvaDias(periodo(), 'off'), 'bloqueado(s) como folga'); agenda(); });
+    $('#liberaP').onclick = () => DC.busy($('#liberaP'), async () => { aviso(await salvaDias(periodo(), 'livre'), 'disponível(is)'); agenda(); });
+    $('#limpaP').onclick = () => DC.busy($('#limpaP'), async () => { aviso(await salvaDias(periodo(), null), 'limpo(s)'); agenda(); });
+    $$('#fsem [data-w]').forEach((b) => (b.onclick = () => b.classList.toggle('off')));
+    const semanas = (quer) => { const ws = $$('#fsem [data-w]').filter((b) => !b.classList.contains('off')).map((b) => +b.dataset.w); if (!ws.length) throw new Error('Escolha pelo menos um dia da semana');
+      const L = []; for (let k = 0; k < +$('#fN').value * 7; k++) { const d = somaDias(hoje, k); const w = new Date(d + 'T12:00:00Z').getUTCDay(); if (quer(ws.includes(w))) L.push(d); } return L; };
+    $('#fixa').onclick = () => DC.busy($('#fixa'), async () => { aviso(await salvaDias(semanas((x) => x), 'off'), 'marcado(s) como folga'); agenda(); });
+    $('#dispSem').onclick = () => DC.busy($('#dispSem'), async () => { aviso(await salvaDias(semanas((x) => !x), 'livre'), 'disponível(is)'); agenda(); });
   }
 
   // ------------------------------------------------------------------ perfil e valores
