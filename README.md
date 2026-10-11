@@ -37,7 +37,7 @@ Privacidade: chat com telefone, e-mail e links ocultos até o pagamento; endere�
 | `SUPABASE_URL` | sim | URL do projeto Supabase da Saúde Pra Você |
 | `SUPABASE_ANON_KEY` | sim | chave publicável |
 | `SUPABASE_SERVICE_ROLE_KEY` | sim | chave secreta |
-| `APP_URL` | sim | `https://saudeparavoce.com`  |
+| `APP_URL` | sim | `https://saudepravoce.com`  |
 | `APP_SECRET` | sim | segredo aleatório (estado do OAuth do Mercado Pago) |
 | `MP_CLIENT_ID`, `MP_CLIENT_SECRET` | para receber | aplicação de marketplace **na conta Mercado Pago da Saúde Pra Você** |
 | `MINDSAAS_KEY` | para o MindSaaS | chave da rota `GET /api/mindsaas` (header `x-api-key`) |
@@ -47,15 +47,15 @@ Privacidade: chat com telefone, e-mail e links ocultos até o pagamento; endere�
 
 ## Domínio
 
-**saudeparavoce.com** (sem acento).
+**saudepravoce.com** (sem acento).
 
-- Vercel → Domains: `saudeparavoce.com` e `www.saudeparavoce.com` (www redireciona para o principal).
+- Vercel → Domains: `saudepravoce.com` e `www.saudepravoce.com` (www redireciona para o principal).
 - DNS no registrador: A `@` → 76.76.21.21; CNAME `www` → cname.vercel-dns.com.
 
 ## Supabase
 
 - Migração única em `supabase/migrations/`.
-- Authentication → URL Configuration: Site URL `https://saudeparavoce.com`; Redirect URLs incluem `https://saudeparavoce.com/**`.
+- Authentication → URL Configuration: Site URL `https://saudepravoce.com`; Redirect URLs incluem `https://saudepravoce.com/**`.
 - Authentication → Providers → Email: **desligar "Confirm email"** (o login é celular + senha com e-mail técnico `<dígitos>@tel.debcare.app`).
 - API → Exposed schemas: incluir `mindsaas` (para a rota do MindSaaS).
 - Equipe do painel: celulares em `config.admins` (painel → Taxas e central). Quem tiver o celular na lista vira administrador.
