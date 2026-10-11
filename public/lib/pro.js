@@ -221,7 +221,13 @@
         <div class="card col"><h2>Senha</h2><button class="btn btn-ghost btn-sm" id="sn">Trocar senha</button></div>
       </div></div>`;
     liga(recebimentos);
-    if ($('#mp')) $('#mp').onclick = () => DC.busy($('#mp'), async () => { const r = await DC.api('/api/mp-conectar'); location.href = r.url; });
+    if ($('#mp')) $('#mp').onclick = () => DC.busy($('#mp'), async () => {
+      try { const r = await DC.api('/api/mp-conectar'); location.href = r.url; }
+      catch (e) {
+        if (e.status !== 503) throw e;
+        DC.modal(`<h2>Recebimentos em breve</h2><p>A conexão com o Mercado Pago ainda está sendo liberada pela Saúde Pra Você. Seu perfil já pode ficar pronto e publicado; avisamos você assim que puder conectar sua conta.</p><div class="acts"><button class="btn" data-close>Entendi</button></div>`);
+      }
+    });
     $('#sn').onclick = () => {
       const m = DC.modal(`<h2>Trocar senha</h2><label class="f">Nova senha<input class="in" type="password" id="s1" minlength="6" autocomplete="new-password"></label><label class="f">Repita<input class="in" type="password" id="s2" autocomplete="new-password"></label>
         <div class="acts"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn" id="ok">Salvar</button></div>`);
