@@ -204,3 +204,13 @@ button.linha:hover { background: #F3F8F8; }
 
 .voltar { align-self: flex-start; background: none; border: 0; padding: 4px 0; margin-bottom: 4px; font: inherit; font-weight: 700; font-size: 15px; color: var(--green, #1F8F78); cursor: pointer; }
 .voltar:hover { text-decoration: underline; }
+
+/* calendário semanal da agenda do profissional */
+.cal { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; max-width: 520px; }
+.cal-h, .cal-w { display: grid; grid-template-columns: 74px repeat(7, 1fr); gap: 4px; align-items: center; }
+.cal-h span { font-size: 11px; font-weight: 700; color: var(--mute); text-align: center; }
+.cal-l { font-size: 11px; line-height: 1.25; color: var(--mute); }
+.cal-d { height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+.cal-d.leve { opacity: .55; }
+.cal-x { background: transparent; }
+@media (max-width: 420px) { .cal-h, .cal-w { grid-template-columns: 54px repeat(7, 1fr); } .cal-d { height: 30px; font-size: 12px; } }

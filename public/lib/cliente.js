@@ -77,11 +77,28 @@
       ${(p.habilidades || []).length ? `<div class="chips">${p.habilidades.map((h) => `<span class="chip">${esc(h)}</span>`).join('')}</div>` : ''}
       <p class="small"><b>Atende:</b> ${esc((p.atende || []).map((x) => DC.LOCAL[x]).join(', '))}${p.regioes ? ' · ' + esc(p.regioes) : ''}${p.tem_coren ? ' · COREN informado' : ''}</p>
       ${precos(p)}
-      <div><h3>Próximas semanas</h3><div class="row" style="gap:4px;margin-top:8px">${dias.map(([d, s]) => `<i title="${DC.data(d)}" class="d-${s === 'vazio' ? 'livre' : s}" style="width:18px;height:18px;border-radius:4px;display:inline-block${s === 'vazio' ? ';opacity:.35' : ''}"></i>`).join('')}</div>
+      <div><h3>Próximas semanas</h3>${calendario(dias)}
         <div class="leg" style="margin-top:6px"><span><i class="d-livre"></i>Disponível</span><span><i class="d-parcial"></i>Parcial</span><span><i class="d-alocado"></i>Ocupado</span><span><i class="d-off"></i>Folga</span></div></div>
       ${(av.data || []).length ? `<div><h3>Avaliações</h3>${av.data.map((a) => `<p class="small"><span class="stars">${'★'.repeat(a.nota)}</span> ${esc(a.comentario)}</p>`).join('')}</div>` : ''}
       <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button><button class="btn" id="ctr">Contratar ${esc(p.nome.split(' ')[0])}</button></div>`, { wide: true, semFoco: true });
     $('#ctr', m.el).onclick = () => { m.close(); contratar(p); };
+  }
+
+  // calendário por semana (segunda a domingo), com a data de cada dia e o período de cada semana
+  function calendario(dias) {
+    const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    const NOME = { livre: 'disponível', vazio: 'disponível', parcial: 'parcial', alocado: 'ocupado', off: 'folga' };
+    const dow = (d) => (new Date(d + 'T12:00:00Z').getUTCDay() + 6) % 7;   // 0 = segunda
+    const cel = [...Array(dow(dias[0][0])).fill(null), ...dias];
+    while (cel.length % 7) cel.push(null);
+    const sem = []; for (let i = 0; i < cel.length; i += 7) sem.push(cel.slice(i, i + 7));
+    const curto = (d) => { const [, m, dd] = d.split('-'); return `${+dd} ${MES[+m - 1]}`; };
+    return `<div class="cal">
+      <div class="cal-h"><span></span>${['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((x) => `<span>${x}</span>`).join('')}</div>
+      ${sem.map((w) => { const v = w.filter(Boolean); return `<div class="cal-w"><span class="cal-l">${v.length > 1 ? `${curto(v[0][0])}<br>a ${curto(v[v.length - 1][0])}` : curto(v[0][0])}</span>${w.map((x) => x
+        ? `<span class="cal-d d-${x[1] === 'vazio' ? 'livre' : x[1]}${x[1] === 'vazio' ? ' leve' : ''}" title="${DC.data(x[0])} · ${NOME[x[1]] || ''}">${+x[0].slice(8)}</span>`
+        : '<span class="cal-d cal-x"></span>').join('')}</div>`; }).join('')}
+    </div>`;
   }
 
   // ------------------------------------------------------------------ contratar (escolhe tempo e paga)
