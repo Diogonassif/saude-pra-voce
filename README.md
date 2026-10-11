@@ -49,8 +49,8 @@ Privacidade: chat com telefone, e-mail e links ocultos até o pagamento; endere�
 
 **saudepravoce.com** (sem acento).
 
-- Vercel → Domains: `saudepravoce.com` e `www.saudepravoce.com` (www redireciona para o principal).
-- DNS no registrador: A `@` → 76.76.21.21; CNAME `www` → cname.vercel-dns.com.
+- Vercel → Domains: `saudepravoce.com` (principal), `www.saudepravoce.com`, `saudeparavoce.com` e `www.saudeparavoce.com`. Os três últimos redirecionam para o principal (regras em `vercel.json`).
+- DNS nos dois domínios: A `@` → 76.76.21.21; CNAME `www` → cname.vercel-dns.com.
 
 ## Supabase
 

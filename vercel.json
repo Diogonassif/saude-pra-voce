@@ -1,12 +1,70 @@
 {
   "cleanUrls": false,
   "headers": [
-    { "source": "/(.*)", "headers": [
-      { "key": "X-Content-Type-Options", "value": "nosniff" },
-      { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-      { "key": "X-Frame-Options", "value": "DENY" },
-      { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
-    ] },
-    { "source": "/icons/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800" }] }
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/icons/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=604800"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "saudeparavoce.com"
+        }
+      ],
+      "destination": "https://saudepravoce.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.saudeparavoce.com"
+        }
+      ],
+      "destination": "https://saudepravoce.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.saudepravoce.com"
+        }
+      ],
+      "destination": "https://saudepravoce.com/:path*",
+      "permanent": true
+    }
   ]
 }
