@@ -37,7 +37,7 @@ Privacidade: chat com telefone, e-mail e links ocultos até o pagamento; endere�
 | `SUPABASE_URL` | sim | URL do projeto Supabase do DebCare |
 | `SUPABASE_ANON_KEY` | sim | chave publicável |
 | `SUPABASE_SERVICE_ROLE_KEY` | sim | chave secreta |
-| `APP_URL` | sim | endereço público do app |
+| `APP_URL` | sim | `https://xn--saudeparavoc-zeb.com` (saudeparavocê.com) |
 | `APP_SECRET` | sim | segredo aleatório (estado do OAuth do Mercado Pago) |
 | `MP_CLIENT_ID`, `MP_CLIENT_SECRET` | para receber | aplicação de marketplace **na conta Mercado Pago da DebCare** |
 | `MINDSAAS_KEY` | para o MindSaaS | chave da rota `GET /api/mindsaas` (header `x-api-key`) |
@@ -45,9 +45,18 @@ Privacidade: chat com telefone, e-mail e links ocultos até o pagamento; endere�
 
 `public/lib/config.js` recebe a URL e a chave publicável do Supabase.
 
+## Domínio
+
+**saudeparavocê.com** (com acento). Na internet ele é escrito em punycode: `xn--saudeparavoc-zeb.com`, e é esse que vai no Vercel, no DNS, no `APP_URL`, na URL de retorno do Supabase e na Redirect URI do Mercado Pago. O navegador mostra a versão com acento.
+
+- Vercel → Domains: `xn--saudeparavoc-zeb.com` e `www.xn--saudeparavoc-zeb.com` (www redireciona para o principal).
+- DNS no registrador: A `@` → 76.76.21.21; CNAME `www` → cname.vercel-dns.com.
+- Recomendado: registrar também `saudeparavoce.com` (sem acento), porque muita gente digita sem o ê, e redirecionar para o principal.
+
 ## Supabase
 
 - Migração única em `supabase/migrations/`.
+- Authentication → URL Configuration: Site URL `https://xn--saudeparavoc-zeb.com`; Redirect URLs incluem `https://xn--saudeparavoc-zeb.com/**`.
 - Authentication → Providers → Email: **desligar "Confirm email"** (o login é celular + senha com e-mail técnico `<dígitos>@tel.debcare.app`).
 - API → Exposed schemas: incluir `mindsaas` (para a rota do MindSaaS).
 - Equipe do painel: celulares em `config.admins` (painel → Taxas e central). Quem tiver o celular na lista vira administrador.
