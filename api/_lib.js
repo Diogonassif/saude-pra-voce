@@ -1,6 +1,6 @@
 // Saúde Pra Você · utilidades do servidor (Vercel Functions). Variáveis de ambiente: veja README.md
 import crypto from 'node:crypto';
-export const env = (k) => process.env[k] || '';
+export const env = (k) => (process.env[k] || '').replace(/\s+/g, '');
 const SB = () => env('SUPABASE_URL');
 
 export function send(res, code, obj) {
