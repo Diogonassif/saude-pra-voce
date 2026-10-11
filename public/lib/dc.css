@@ -183,3 +183,9 @@ details.filtros[open] > summary { margin-bottom: 12px; }
 .sem button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
 .priv { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--mute); }
 .alerta { border-left: 4px solid var(--coral); }
+
+/* troca de perfil do gestor da Mind */
+.troca { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #E8F6F1; border-bottom: 1px solid #CDE9DF; overflow-x: auto; white-space: nowrap; font-size: 13px; }
+.troca span { color: #46636A; font-weight: 600; margin-right: 4px; }
+.troca a { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid #CDE9DF; color: #0E2B36; text-decoration: none; font-weight: 600; }
+.troca a.on { background: #0E2B36; border-color: #0E2B36; color: #fff; }

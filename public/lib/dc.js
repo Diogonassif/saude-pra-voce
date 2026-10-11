@@ -124,6 +124,12 @@
       <div class="who">${me.isMind ? `<a class="btn btn-sm ${aud === 'Mind' ? '' : 'btn-ghost'}" href="/mind.html" title="Painel Mind: ver como qualquer perfil">Mind</a>` : me.isAdmin && aud !== 'Central' ? '<a class="btn btn-sm btn-ghost" href="/admin.html">Central</a>' : ''}
         <button class="btn btn-sm btn-ghost" id="sair" title="${DC.esc(DC.telBonito(me.telefone))}">Sair</button>${DC.av(me.nome)}</div></div>`;
     DC.$('#sair').onclick = DC.sair;
+    // gestor da Mind: troca de perfil com um toque, sem novo login (a mesma conta abre todas as áreas)
+    if (me.isMind && !DC.$('#trocaPerfil')) {
+      const ops = [['/cliente.html', 'Contratante'], ['/pro.html', 'Profissional'], ['/admin.html', 'Gestão'], ['/mind.html', 'Painel Mind']];
+      el.insertAdjacentHTML('afterend', `<nav class="troca" id="trocaPerfil" aria-label="Trocar de perfil"><span>Ver como</span>${ops.map(([h, n]) =>
+        `<a href="${h}" class="${location.pathname === h ? 'on' : ''}" ${location.pathname === h ? 'aria-current="page"' : ''}>${n}</a>`).join('')}</nav>`);
+    }
   };
   DC.centralWa = (texto) => { const n = DC.cfg && DC.cfg.central_whatsapp; return n ? DC.wa(n, texto) : null; };
 })();
