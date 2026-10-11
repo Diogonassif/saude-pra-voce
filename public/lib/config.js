@@ -1,6 +1,5 @@
-/* Configuração pública (chave publicável; a segurança dos dados fica nas regras do banco).
-   Preencha com o projeto Supabase da Saúde Pra Você (Project Settings → API). */
+/* Configuração pública (chave publicável; a segurança dos dados fica nas regras do banco) */
 window.DC = Object.assign(window.DC || {}, {
-  url: 'https://SEU-PROJETO.supabase.co',
-  key: 'sb_publishable_SUA_CHAVE',
+  url: 'https://daqmpctkcilfzweqdthh.supabase.co',
+  key: 'sb_publishable_c7lY3esi8y_F-KmZ7Ce7WQ_tMiUpaB1',
 });

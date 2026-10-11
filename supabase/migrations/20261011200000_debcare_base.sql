@@ -550,3 +550,9 @@ $$;
 revoke all on function mindsaas.debcare_cobranca() from public, anon, authenticated;
 grant usage on schema mindsaas to service_role;
 grant execute on function mindsaas.debcare_cobranca() to service_role;
+
+-- ajustes de segurança (aplicados em 11/10): o contratante não calcula preço por conta própria
+revoke execute on function public.preco_cliente(numeric) from authenticated;
+revoke execute on function public.so_digitos(text) from authenticated;
+alter function public.so_digitos(text) set search_path = public;
+revoke execute on function public.is_sys() from authenticated;
