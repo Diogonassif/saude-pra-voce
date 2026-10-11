@@ -6,6 +6,7 @@
   DC.topo(me, [['visao', 'Visão geral'], ['central', 'Central'], ['contratacoes', 'Contratações'], ['profissionais', 'Profissionais'], ['contratantes', 'Contratantes'], ['financeiro', 'Financeiro'], ['config', 'Taxas e central']], 'Central');
   const app = $('#app');
   const mesAtual = DC.hoje().slice(0, 7);
+  let filtroStatus = '';
   const um = (x) => (Array.isArray(x) ? x[0] : x) || {};
   const refDe = (iso) => new Date(new Date(iso).getTime() - 3 * 3600e3).toISOString().slice(0, 7);
   const mesNome = (k) => { const t = new Date(k + '-15T12:00:00Z').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' }); return t[0].toUpperCase() + t.slice(1); };
@@ -40,14 +41,16 @@
       ${alertaMind(din.devido)}
       ${abertas ? `<a class="banner row" href="#central" style="text-decoration:none;justify-content:space-between"><span><b>${abertas} pedido(s) na central</b> esperando um profissional.</span><span>Abrir →</span></a>` : ''}
       <div class="grid2">
-        <div class="card kpi"><span class="small mute">Pago pelos contratantes no mês</span><div class="v">${brl(m.total, 2)}</div><span class="small mute">${m.n} pagamento(s)</span></div>
-        <div class="card kpi"><span class="small mute">Saúde Pra Você no mês (15%)</span><div class="v">${brl(m.debcare, 2)}</div><span class="small mute">entra pelo split do Mercado Pago</span></div>
-        <div class="card kpi"><span class="small mute">Mind no mês (10%)</span><div class="v">${brl(m.mind, 2)}</div><span class="small mute">a repassar pela Saúde Pra Você</span></div>
-        <div class="card kpi"><span class="small mute">Profissionais</span><div class="v">${pros.length}</div><span class="small mute">${pros.filter((p) => p.publicado).length} no catálogo · ${pros.filter((p) => p.publicado && !p.verificado).length} sem selo</span></div>
-        <div class="card kpi"><span class="small mute">Contratantes</span><div class="v">${(cl.data || []).length}</div></div>
-        <div class="card kpi"><span class="small mute">Pedidos na central</span><div class="v">${abertas}</div></div>
+        <div class="card kpi go" data-go="financeiro"><span class="small mute">Pago pelos contratantes no mês</span><div class="v">${brl(m.total, 2)}</div><span class="small mute">${m.n} pagamento(s)</span></div>
+        <div class="card kpi go" data-go="financeiro"><span class="small mute">Saúde Pra Você no mês (15%)</span><div class="v">${brl(m.debcare, 2)}</div><span class="small mute">entra pelo split do Mercado Pago</span></div>
+        <div class="card kpi go" data-go="financeiro"><span class="small mute">Mind no mês (10%)</span><div class="v">${brl(m.mind, 2)}</div><span class="small mute">a repassar pela Saúde Pra Você</span></div>
+        <div class="card kpi go" data-go="profissionais"><span class="small mute">Profissionais</span><div class="v">${pros.length}</div><span class="small mute">${pros.filter((p) => p.publicado).length} no catálogo · ${pros.filter((p) => p.publicado && !p.verificado).length} sem selo</span></div>
+        <div class="card kpi go" data-go="contratantes"><span class="small mute">Contratantes</span><div class="v">${(cl.data || []).length}</div></div>
+        <div class="card kpi go" data-go="central"><span class="small mute">Pedidos na central</span><div class="v">${abertas}</div></div>
       </div>
-      <div class="card col"><h2>Funil de contratações</h2><div class="grid2">${Object.keys(DC.STATUS).map((s) => `<div class="row"><span class="grow">${DC.stTag(s)}</span><b>${conta(s)}</b></div>`).join('')}</div></div>`;
+      <div class="card col"><h2>Funil de contratações</h2><div class="grid2">${Object.keys(DC.STATUS).map((s) => `<button type="button" class="row go linha" data-fst="${s}"><span class="grow">${DC.stTag(s)}</span><b>${conta(s)}</b></button>`).join('')}</div><p class="tiny mute">Toque num card ou num status para ver os detalhes.</p></div>`;
+    $$('[data-go]').forEach((b) => (b.onclick = () => { location.hash = b.dataset.go; }));
+    $$('[data-fst]').forEach((b) => (b.onclick = () => { filtroStatus = b.dataset.fst; location.hash === '#contratacoes' ? contratacoes() : (location.hash = 'contratacoes'); }));
   }
 
   // ------------------------------------------------------------------ central (necessidades)
@@ -126,17 +129,19 @@
   async function contratacoes() {
     const { data, error } = await sb.from('contratacoes').select('*,contratacao_split(pro,debcare,mind),contratacao_cliente(total)').order('updated_at', { ascending: false }).limit(500);
     if (error) throw error;
-    let fs = '';
+    let fs = filtroStatus; filtroStatus = '';
     app.innerHTML = `<div class="head"><div><h1>Contratações</h1><p>Todas as contratações com a divisão de valores. O contratante e o profissional não veem esta divisão.</p></div>
       <select class="in" id="fs" style="width:auto"><option value="">Todos os status</option>${Object.entries(DC.STATUS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select></div>
       <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>#</th><th>Contratante → profissional</th><th>Período</th><th>Contratante paga</th><th>Profissional</th><th>Saúde Pra Você</th><th>Mind</th><th>Status</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
     const draw = () => {
-      $('#tb').innerHTML = (data || []).filter((c) => !fs || c.status === fs).map((c) => { const s = um(c.contratacao_split), v = um(c.contratacao_cliente); return `<tr>
+      $('#tb').innerHTML = (data || []).filter((c) => !fs || c.status === fs).map((c) => { const s = um(c.contratacao_split), v = um(c.contratacao_cliente); return `<tr class="go" data-row="${c.id}" title="Duplo clique para ver tudo">
         <td class="small">${c.codigo}</td><td><b>${esc(c.cliente_nome)}</b> → ${esc(c.pro_nome)}<br><span class="small mute">${esc(DC.espec(c.especialidade))} · ${esc(DC.MODAL[c.modalidade].nome)}${c.origem === 'central' ? ' · central' : ''}</span></td>
         <td class="small">${DC.periodo(c)}<br>${esc(DC.qtdTxt(c))}</td><td><b>${brl(v.total, 2)}</b></td><td>${brl(s.pro, 2)}</td><td>${brl(s.debcare, 2)}</td><td>${brl(s.mind, 2)}</td>
         <td>${DC.stTag(c.status)}</td><td><button class="btn btn-sm btn-ghost" data-c="${c.id}">Abrir</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="mute">Nenhuma contratação.</td></tr>';
       $$('[data-c]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.c, 'admin', contratacoes)));
+      $$('[data-row]').forEach((r) => (r.ondblclick = () => DC.abrirContratacao(r.dataset.row, 'admin', contratacoes)));
     };
+    $('#fs').value = fs;
     $('#fs').onchange = (e) => { fs = e.target.value; draw(); };
     draw();
   }
@@ -160,13 +165,16 @@
     };
     const draw = () => {
       const q = DC.norm($('#q').value);
-      $('#tb').innerHTML = (data || []).filter((p) => !q || DC.norm(p.nome + p.titulo + p.cidade).includes(q)).map((p) => `<tr>
+      $('#tb').innerHTML = (data || []).filter((p) => !q || DC.norm(p.nome + p.titulo + p.cidade).includes(q)).map((p) => `<tr class="go" data-prow="${p.user_id}" title="Duplo clique para ver tudo">
         <td><b>${esc(p.nome)}</b><br><span class="small mute">${esc(DC.espec(p.especialidade))}${p.cidade ? ' · ' + esc(p.cidade) : ''} · ${esc(DC.telBonito(TEL[p.user_id]))}</span></td>
         <td class="small">${p.valor_hora ? brl(p.valor_hora, 2) + '/h' : '—'}${p.valor_12h ? '<br>' + brl(p.valor_12h, 2) + '/12h' : ''}${p.valor_24h ? '<br>' + brl(p.valor_24h, 2) + '/24h' : ''}</td>
         <td class="small">${corenCel(p)}</td><td>${docs(p.user_id)}</td>
         <td><label class="check"><input type="checkbox" data-pub="${p.user_id}" ${p.publicado ? 'checked' : ''}>Publicado</label></td>
         <td><label class="check"><input type="checkbox" data-ver="${p.user_id}" ${p.verificado ? 'checked' : ''}>Selo</label></td>
-        <td><button class="btn btn-sm btn-ghost" data-senha="${p.user_id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum profissional.</td></tr>';
+        <td><button class="btn btn-sm" data-ver="${p.user_id}">Ver</button> <button class="btn btn-sm btn-ghost" data-senha="${p.user_id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum profissional.</td></tr>';
+      const abre = (id) => detalhePro(data.find((x) => x.user_id === id), PV[id] || {}, TEL[id]);
+      $$('[data-prow]').forEach((r) => (r.ondblclick = (e) => { if (!e.target.closest('button,input,label,a')) abre(r.dataset.prow); }));
+      $$('[data-ver]').forEach((b) => (b.onclick = () => abre(b.dataset.ver)));
       $$('[data-ver]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ verificado: c.checked }).eq('user_id', c.dataset.ver); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'Selo verificado concedido' : 'Selo removido'); }));
       $$('[data-pub]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ publicado: c.checked }).eq('user_id', c.dataset.pub); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'No catálogo' : 'Fora do catálogo'); }));
       $$('[data-doc]').forEach((b) => (b.onclick = async () => { const { data: u, error: e } = await sb.storage.from('docs').createSignedUrl(b.dataset.doc, 300); if (e) return DC.erro(e); window.open(u.signedUrl, '_blank', 'noopener'); }));
@@ -198,10 +206,60 @@
     if (error) throw error;
     const n = (L, id, f) => (L || []).filter((x) => x.cliente_id === id && (!f || f(x))).length;
     app.innerHTML = `<div class="head"><div><h1>Contratantes</h1></div></div><div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Contratante</th><th>Celular</th><th>Contratações</th><th>Pagas</th><th>Pedidos à central</th><th>Desde</th><th></th></tr></thead><tbody>
-      ${(data || []).map((p) => `<tr><td><b>${esc(p.nome)}</b>${p.email ? `<br><span class="small mute">${esc(p.email)}</span>` : ''}</td><td class="small"><a href="${esc(DC.wa(p.telefone))}" target="_blank" rel="noopener">${esc(DC.telBonito(p.telefone))}</a></td>
+      ${(data || []).map((p) => `<tr class="go" data-crow="${p.id}" title="Duplo clique para ver tudo"><td><b>${esc(p.nome)}</b>${p.email ? `<br><span class="small mute">${esc(p.email)}</span>` : ''}</td><td class="small"><a href="${esc(DC.wa(p.telefone))}" target="_blank" rel="noopener">${esc(DC.telBonito(p.telefone))}</a></td>
         <td>${n(ct.data, p.id)}</td><td>${n(ct.data, p.id, (x) => ['confirmado', 'concluido'].includes(x.status))}</td><td>${n(ne.data, p.id)}</td><td class="small">${DC.data(p.created_at)}</td>
-        <td><button class="btn btn-sm btn-ghost" data-senha="${p.id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum contratante ainda.</td></tr>'}</tbody></table></div></div>`;
+        <td><button class="btn btn-sm" data-cver="${p.id}">Ver</button> <button class="btn btn-sm btn-ghost" data-senha="${p.id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum contratante ainda.</td></tr>'}</tbody></table></div></div>`;
     $$('[data-senha]').forEach((b) => (b.onclick = () => novaSenha(b, b.dataset.senha)));
+    const abre = (id) => detalheCli(data.find((x) => x.id === id));
+    $$('[data-crow]').forEach((r) => (r.ondblclick = (e) => { if (!e.target.closest('button,a')) abre(r.dataset.crow); }));
+    $$('[data-cver]').forEach((b) => (b.onclick = () => abre(b.dataset.cver)));
+  }
+
+  // ------------------------------------------------------------------ detalhes (profissional e contratante)
+  const dl = (L) => `<div class="dl">${L.filter((x) => x && x[1] !== undefined && x[1] !== null && x[1] !== '').map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('')}</div>`;
+  const listaCt = (L, quem) => L.length ? `<div class="list small">${L.map((c) => { const s = um(c.contratacao_split), v = um(c.contratacao_cliente); return `<button class="li linha" data-dc="${c.id}"><span class="grow"><b>#${c.codigo}</b> · ${esc(quem === 'pro' ? c.cliente_nome : c.pro_nome)} · ${DC.periodo(c)}<br><span class="mute">${esc(DC.MODAL[c.modalidade].nome)} · ${esc(DC.qtdTxt(c))}</span></span><span style="text-align:right">${DC.stTag(c.status)}<br><b>${brl(v.total, 2)}</b><br><span class="tiny mute">pro ${brl(s.pro, 2)} · SPV ${brl(s.debcare, 2)} · Mind ${brl(s.mind, 2)}</span></span></button>`; }).join('')}</div>` : '<p class="small mute">Nenhuma contratação.</p>';
+  const ligaCt = (m) => $$('[data-dc]').forEach((b) => (b.onclick = () => { if (m && m.close) m.close(); else document.querySelector('.scrim') && document.querySelector('.scrim').remove(); DC.abrirContratacao(b.dataset.dc, 'admin'); }));
+  const somaPagas = (L) => L.filter((c) => ['confirmado', 'concluido'].includes(c.status)).reduce((t, c) => t + +um(c.contratacao_cliente).total || 0, 0);
+
+  async function detalhePro(p, x, tel) {
+    if (!p) return;
+    const [ct, av] = await Promise.all([
+      sb.from('contratacoes').select('*,contratacao_split(pro,debcare,mind),contratacao_cliente(total)').eq('pro_id', p.user_id).order('inicio', { ascending: false }),
+      sb.from('avaliacoes').select('nota,comentario,created_at').eq('pro_id', p.user_id).order('created_at', { ascending: false }).limit(20),
+    ]);
+    const C = ct.data || [], A = av.data || [];
+    const preco = (v) => (v ? `${brl(v, 2)} → contratante paga ${brl(Math.round(v * (1 + ((+(DC.cfg.taxa_debcare ?? 15)) + (+(DC.cfg.taxa_mind ?? 10))) / 100)), 2)}` : '');
+    const docs = [['doc_identidade', 'Identidade'], ['doc_coren', 'Carteira do COREN'], ['doc_antecedentes', 'Antecedentes']].map(([k, n]) => x[k] ? `<button class="btn btn-sm btn-ghost" data-doc2="${esc(x[k])}">${n}</button>` : `<span class="tag t-gray">${n}: pendente</span>`).join(' ');
+    const m = DC.modal(`<h2>${esc(p.nome)}</h2>
+      <div class="row">${p.publicado ? '<span class="tag t-green">NO CATÁLOGO</span>' : '<span class="tag t-amber">FORA DO CATÁLOGO</span>'}${p.verificado ? '<span class="selo">✓ Selo</span>' : ''}${DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren ? (p.coren_status === 'ativo' ? '<span class="tag t-green">COREN ATIVO</span>' : p.coren_status === 'irregular' ? '<span class="tag t-red">COREN IRREGULAR</span>' : '<span class="tag t-amber">COREN A CONFERIR</span>') : ''}</div>
+      ${dl([['Especialidade', esc(DC.espec(p.especialidade))], ['Celular', `<a href="${esc(DC.wa(tel))}" target="_blank" rel="noopener">${esc(DC.telBonito(tel))}</a>`], ['CPF', esc(x.cpf || '')], ['COREN', p.coren ? esc(p.coren + '/' + (p.coren_uf || '?')) : ''],
+        ['Cidade', esc([p.cidade, p.uf].filter(Boolean).join('/'))], ['Atende em', esc((p.atende || []).map((t) => DC.LOCAL[t] || t).join(', '))], ['Regiões', esc(p.regioes || '')], ['Experiência', p.experiencia_anos != null ? p.experiencia_anos + ' ano(s)' : ''],
+        ['Gênero', esc(p.genero || '')], ['Por hora (dele)', preco(p.valor_hora)], ['Plantão 12h (dele)', preco(p.valor_12h)], ['Plantão 24h (dele)', preco(p.valor_24h)],
+        ['Avaliação', p.n_avaliacoes ? `${(+p.rating).toFixed(1)} ★ (${p.n_avaliacoes})` : 'sem avaliações'], ['Contratações', `${C.length} · ${C.filter((c) => ['confirmado', 'concluido'].includes(c.status)).length} paga(s) · ${brl(somaPagas(C), 2)}`], ['Cadastro', DC.data(p.created_at)]])}
+      ${p.titulo ? `<p><b>${esc(p.titulo)}</b></p>` : ''}${p.resumo ? `<p class="small">${esc(p.resumo)}</p>` : ''}
+      ${(p.habilidades || []).length ? `<div class="chips">${p.habilidades.map((h) => `<span class="chip">${esc(h)}</span>`).join('')}</div>` : ''}
+      <h3>Documentos</h3><div class="row">${docs}</div>
+      <h3>Contratações</h3>${listaCt(C, 'pro')}
+      ${A.length ? `<h3>Avaliações</h3><div class="list small">${A.map((a) => `<div class="li"><span class="grow">${'★'.repeat(a.nota)}${'☆'.repeat(5 - a.nota)} ${esc(a.comentario)}</span><span class="mute">${DC.data(a.created_at)}</span></div>`).join('')}</div>` : ''}
+      <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button></div>`, { wide: true });
+    $$('[data-doc2]').forEach((b) => (b.onclick = async () => { const { data: u, error: e } = await sb.storage.from('docs').createSignedUrl(b.dataset.doc2, 300); if (e) return DC.erro(e); window.open(u.signedUrl, '_blank', 'noopener'); }));
+    ligaCt(m);
+  }
+
+  async function detalheCli(p) {
+    if (!p) return;
+    const [ct, ne] = await Promise.all([
+      sb.from('contratacoes').select('*,contratacao_split(pro,debcare,mind),contratacao_cliente(total)').eq('cliente_id', p.id).order('inicio', { ascending: false }),
+      sb.from('necessidades').select('*').eq('cliente_id', p.id).order('created_at', { ascending: false }),
+    ]);
+    const C = ct.data || [], N = ne.data || [];
+    const m = DC.modal(`<h2>${esc(p.nome)}</h2>
+      ${dl([['Celular', `<a href="${esc(DC.wa(p.telefone))}" target="_blank" rel="noopener">${esc(DC.telBonito(p.telefone))}</a>`], ['E-mail', esc(p.email || '')], ['Cliente desde', DC.data(p.created_at)],
+        ['Contratações', `${C.length} · ${C.filter((c) => ['confirmado', 'concluido'].includes(c.status)).length} paga(s)`], ['Total pago', brl(somaPagas(C), 2)], ['Pedidos à central', String(N.length)]])}
+      <h3>Contratações</h3>${listaCt(C, 'cli')}
+      <h3>Pedidos à central</h3>${N.length ? `<div class="list small">${N.map((n) => `<div class="li"><span class="grow"><b>#${n.codigo}</b> · ${esc(DC.espec(n.especialidade))} · ${esc(n.paciente_nome || '')}${n.cidade ? ' · ' + esc(n.cidade) : ''}<br><span class="mute">${n.inicio ? DC.data(n.inicio) : ''}${n.fim && n.fim !== n.inicio ? ' a ' + DC.data(n.fim) : ''} · ${esc(n.cuidados.slice(0, 140))}</span></span><span class="tag ${n.status === 'atendida' ? 't-green' : n.status === 'cancelada' ? 't-gray' : 't-amber'}">${esc(n.status.replace('_', ' ').toUpperCase())}</span></div>`).join('')}</div>` : '<p class="small mute">Nenhum pedido.</p>'}
+      <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button></div>`, { wide: true });
+    ligaCt(m);
   }
 
   // ------------------------------------------------------------------ financeiro e repasse à Mind
