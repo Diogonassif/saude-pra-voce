@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar · DebCare</title>
+<meta name="theme-color" content="#0E2B36">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lib/dc.css">
+<style>
+body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 60%, #08202A 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.box { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 18px; }
+.box .brand { justify-content: center; font-size: 30px; }
+.box .brand .mk svg { width: 40px; height: 40px; }
+.lead { color: #C5DADD; text-align: center; font-size: 15px; }
+.papel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.papel .opt { align-items: flex-start; min-height: 130px; }
+.papel .opt svg { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<main class="box">
+  <a class="brand" href="/" id="marca"></a>
+  <p class="lead" id="lead">Cuidado de confiança, contratado com segurança.</p>
+
+  <section class="card col" id="login">
+    <h2 id="tit">Entrar</h2>
+    <form id="form" class="col">
+      <label class="f hide" id="nomeL">Seu nome completo<input class="in" id="nome" autocomplete="name" maxlength="80"></label>
+      <label class="f">Celular com DDD<input class="in" id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(16) 99999-0000" required></label>
+      <label class="f">Senha<small id="senhaDica" class="hide">mínimo de 6 caracteres</small><input class="in" id="senha" type="password" autocomplete="current-password" minlength="6" required></label>
+      <label class="f hide" id="senha2L">Repita a senha<input class="in" id="senha2" type="password" autocomplete="new-password" minlength="6"></label>
+      <button class="btn btn-block" id="go" type="submit">Entrar</button>
+    </form>
+    <p class="small mute" style="text-align:center"><span id="tx1">Primeira vez aqui?</span> <button class="link" type="button" id="troca">Criar conta</button></p>
+    <p class="small mute" style="text-align:center"><button class="link" type="button" id="esqueci">Esqueci a senha</button></p>
+    <p class="tiny mute" style="text-align:center">Ao continuar você aceita os <a href="/termos.html">Termos de uso</a> e a <a href="/privacidade.html">Política de privacidade</a>.</p>
+  </section>
+
+  <section class="card col hide" id="papelBox">
+    <div><h2>Como você vai usar o DebCare?</h2><p class="mute small">Escolha uma vez. Para usar dos dois jeitos, crie outra conta com outro celular.</p></div>
+    <div class="papel">
+      <button class="opt" type="button" data-p="cliente"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#17705F" stroke-width="2" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><b>Preciso de um profissional</b><span>Para mim ou para alguém da família.</span></button>
+      <button class="opt" type="button" data-p="pro"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#17705F" stroke-width="2" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6M12 15v4M10 17h4"/></svg><b>Sou profissional de saúde</b><span>Enfermagem, cuidador ou acompanhante.</span></button>
+    </div>
+    <button class="btn btn-block" id="continuar" disabled>Continuar</button>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/lib/config.js"></script>
+<script src="/lib/dc.js"></script>
+<script>
+(async function () {
+  const { $, $$, sb } = DC;
+  $('#marca').innerHTML = DC.marca();
+  const qs = new URLSearchParams(location.search);
+  const volta = qs.get('volta');
+  let criar = false, papel = null;
+  // de qual link a pessoa veio: profissional ou contratante
+  let como = qs.get('como');
+  try { if (como === 'pro' || como === 'cliente') localStorage.setItem('dc_como', como); else como = localStorage.getItem('dc_como'); } catch (e) {}
+  if (como === 'pro') { $('#lead').textContent = 'Entre para montar seu perfil, definir seu valor e receber pedidos.'; $('#marca').href = '/profissional.html'; }
+  if (como === 'cliente') { $('#lead').textContent = 'Entre para escolher o profissional e contratar com segurança.'; $('#marca').href = '/contratante.html'; }
+  const vai = (role) => location.replace(volta && volta.startsWith('/') && !volta.startsWith('//') ? volta : DC.home(role));
+
+  async function depois() {
+    const s = await DC.session(); if (!s) return;
+    let me = null; try { me = await DC.api('/api/conta', null, 'GET'); } catch (e) {}
+    if (me && me.role) return vai(me.role);
+    $('#login').classList.add('hide'); $('#papelBox').classList.remove('hide');
+    $('#lead').textContent = 'Bem-vindo(a), ' + ((s.user.user_metadata && s.user.user_metadata.full_name) || '').split(' ')[0] + '.';
+    const pre = $(`[data-p="${como}"]`); if (pre) pre.click();
+  }
+  depois();
+
+  const modo = (c) => {
+    criar = c;
+    ['#nomeL', '#senha2L', '#senhaDica'].forEach((x) => $(x).classList.toggle('hide', !criar));
+    $('#tit').textContent = criar ? 'Criar conta' : 'Entrar';
+    $('#go').textContent = criar ? 'Criar conta' : 'Entrar';
+    $('#tx1').textContent = criar ? 'Já tem conta?' : 'Primeira vez aqui?';
+    $('#troca').textContent = criar ? 'Entrar' : 'Criar conta';
+    $('#senha').autocomplete = criar ? 'new-password' : 'current-password';
+  };
+  $('#troca').onclick = () => modo(!criar);
+  if (qs.get('criar')) modo(true);
+  $('#tel').oninput = (e) => { const d = e.target.value.replace(/\D/g, '').slice(0, 11); e.target.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d; };
+
+  $('#esqueci').onclick = () => {
+    const link = DC.cfg && DC.cfg.central_whatsapp ? DC.wa(DC.cfg.central_whatsapp, 'Olá! Esqueci minha senha do DebCare. Meu celular é ' + $('#tel').value) : null;
+    DC.modal(`<h2>Esqueci a senha</h2><p>Fale com a central DebCare pelo WhatsApp. Conferimos que o celular é seu e mandamos uma senha nova.</p>
+      <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button>${link ? `<a class="btn" href="${DC.esc(link)}" target="_blank" rel="noopener">Falar com a central</a>` : ''}</div>`);
+  };
+  // WhatsApp da central (lido sem login pela configuração pública não é possível; tenta e segue sem)
+  sb.from('config').select('key,value').eq('key', 'central_whatsapp').then((r) => { DC.cfg = Object.fromEntries(((r && r.data) || []).map((x) => [x.key, x.value])); });
+
+  $('#form').onsubmit = (e) => {
+    e.preventDefault();
+    DC.busy($('#go'), async () => {
+      const tel = DC.tel($('#tel').value);
+      if (!tel) throw new Error('Informe o celular com DDD');
+      const email = DC.emailTec(tel), password = $('#senha').value;
+      if (criar) {
+        const nome = $('#nome').value.trim();
+        if (nome.split(/\s+/).length < 2) throw new Error('Informe nome e sobrenome');
+        if (password.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres');
+        if (password !== $('#senha2').value) throw new Error('As senhas não conferem');
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: nome, phone: tel } } });
+        if (error) throw new Error(/registered|exists/i.test(error.message) ? 'Este celular já tem conta. Toque em Entrar.' : error.message);
+        if (!data.session) {
+          const r = await sb.auth.signInWithPassword({ email, password });
+          if (r.error) throw new Error('Conta criada. Entre com seu celular e senha.');
+        }
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw new Error(/Invalid/i.test(error.message) ? 'Celular ou senha incorretos' : error.message);
+      }
+      await depois();
+    });
+  };
+  $$('[data-p]').forEach((b) => b.onclick = () => {
+    papel = b.dataset.p;
+    $$('[data-p]').forEach((x) => x.classList.toggle('on', x === b));
+    $('#continuar').disabled = false;
+  });
+  $('#continuar').onclick = () => DC.busy($('#continuar'), async () => {
+    const { error } = await sb.rpc('escolher_papel', { papel });
+    if (error) throw error;
+    location.replace(papel === 'pro' ? '/pro.html#perfil' : '/cliente.html');
+  });
+})();
+</script>
+</body>
+</html>
