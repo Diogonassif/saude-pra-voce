@@ -68,14 +68,15 @@
     const me = await DC.api('/api/conta', null, 'GET').catch(() => null);
     if (!me) { await DC.sb.auth.signOut(); location.replace('/entrar.html'); return null; }
     if (!me.role) { location.replace('/entrar.html?papel=1'); return null; }
-    if (papel && me.role !== papel && me.role !== 'admin') { location.replace(DC.home(me.role)); return null; }
+    if (papel && me.role !== papel && me.role !== 'admin') { location.replace(DC.home(me.role, me)); return null; }
+    if (papel === 'mind' && !me.isMind) { location.replace(DC.home(me.role)); return null; }
     me.user = s.user;
     DC.me = me;
     const cfg = await DC.sb.from('config').select('key,value');
     DC.cfg = Object.fromEntries((cfg.data || []).map((x) => [x.key, x.value]));
     return me;
   };
-  DC.home = (role) => (role === 'pro' ? '/pro.html' : role === 'cliente' ? '/cliente.html' : role === 'admin' ? '/admin.html' : '/entrar.html');
+  DC.home = (role, me) => (me && me.isMind ? '/mind.html' : role === 'pro' ? '/pro.html' : role === 'cliente' ? '/cliente.html' : role === 'admin' ? '/admin.html' : '/entrar.html');
   DC.sair = async () => { await DC.sb.auth.signOut(); location.href = '/'; };
 
   DC.toast = (msg, err) => {
@@ -118,9 +119,9 @@
   DC.topo = (me, abas, aud) => {
     const el = DC.$('#top');
     el.innerHTML = `<div class="top-in">
-      <a class="brand" href="${DC.home(me.role)}">${DC.marca(aud)}</a>
+      <a class="brand" href="${DC.home(me.role, me)}">${DC.marca(aud)}</a>
       <nav class="nav" aria-label="Principal">${abas.map(([k, l]) => `<a href="#${k}" data-tab="${k}">${DC.esc(l)}</a>`).join('')}</nav>
-      <div class="who">${me.isAdmin && aud !== 'Central' ? '<a class="btn btn-sm btn-ghost" href="/admin.html">Central</a>' : ''}
+      <div class="who">${me.isMind ? `<a class="btn btn-sm ${aud === 'Mind' ? '' : 'btn-ghost'}" href="/mind.html" title="Painel Mind: ver como qualquer perfil">Mind</a>` : me.isAdmin && aud !== 'Central' ? '<a class="btn btn-sm btn-ghost" href="/admin.html">Central</a>' : ''}
         <button class="btn btn-sm btn-ghost" id="sair" title="${DC.esc(DC.telBonito(me.telefone))}">Sair</button>${DC.av(me.nome)}</div></div>`;
     DC.$('#sair').onclick = DC.sair;
   };

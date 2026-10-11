@@ -31,7 +31,8 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
     <h2 id="tit">Entrar</h2>
     <form id="form" class="col">
       <label class="f hide" id="nomeL">Seu nome completo<input class="in" id="nome" autocomplete="name" maxlength="80"></label>
-      <label class="f">Celular com DDD<input class="in" id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(16) 99999-0000" required></label>
+      <label class="f"><span id="telT">Celular ou e-mail</span><input class="in" id="tel" type="text" autocomplete="username" placeholder="(16) 99999-0000 ou seu@email.com" required></label>
+      <label class="f hide" id="emailL">E-mail (opcional)<small>para entrar também com o e-mail e receber avisos</small><input class="in" id="email" type="email" autocomplete="email" maxlength="120" placeholder="seu@email.com"></label>
       <label class="f">Senha<small id="senhaDica" class="hide">mínimo de 6 caracteres</small><input class="in" id="senha" type="password" autocomplete="current-password" minlength="6" required></label>
       <label class="f hide" id="senha2L">Repita a senha<input class="in" id="senha2" type="password" autocomplete="new-password" minlength="6"></label>
       <button class="btn btn-block" id="go" type="submit">Entrar</button>
@@ -65,12 +66,16 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   try { if (como === 'pro' || como === 'cliente') localStorage.setItem('dc_como', como); else como = localStorage.getItem('dc_como'); } catch (e) {}
   if (como === 'pro') { $('#lead').textContent = 'Entre para montar seu perfil, definir seu valor e receber pedidos.'; $('#marca').href = '/profissional.html'; }
   if (como === 'cliente') { $('#lead').textContent = 'Entre para escolher o profissional e contratar com segurança.'; $('#marca').href = '/contratante.html'; }
-  const vai = (role) => location.replace(volta && volta.startsWith('/') && !volta.startsWith('//') ? volta : DC.home(role));
+  const vai = (role, me) => location.replace(volta && volta.startsWith('/') && !volta.startsWith('//') ? volta : DC.home(role, me));
 
   async function depois() {
     const s = await DC.session(); if (!s) return;
     let me = null; try { me = await DC.api('/api/conta', null, 'GET'); } catch (e) {}
-    if (me && me.role) return vai(me.role);
+    if (me && me.role) {
+      const pedido = $('#email').value.trim().toLowerCase();
+      if (criar && pedido && me.email !== pedido) { DC.toast('Conta criada. Esse e-mail já está em outra conta, então entre pelo celular.', true); await new Promise((r) => setTimeout(r, 2500)); }
+      return vai(me.role, me);
+    }
     $('#login').classList.add('hide'); $('#papelBox').classList.remove('hide');
     $('#lead').textContent = 'Bem-vindo(a), ' + ((s.user.user_metadata && s.user.user_metadata.full_name) || '').split(' ')[0] + '.';
     const pre = $(`[data-p="${como}"]`); if (pre) pre.click();
@@ -79,7 +84,11 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
 
   const modo = (c) => {
     criar = c;
-    ['#nomeL', '#senha2L', '#senhaDica'].forEach((x) => $(x).classList.toggle('hide', !criar));
+    ['#nomeL', '#senha2L', '#senhaDica', '#emailL'].forEach((x) => $(x).classList.toggle('hide', !criar));
+    $('#telT').textContent = criar ? 'Celular com DDD' : 'Celular ou e-mail';
+    $('#tel').type = criar ? 'tel' : 'text'; $('#tel').inputMode = criar ? 'tel' : 'text';
+    $('#tel').placeholder = criar ? '(16) 99999-0000' : '(16) 99999-0000 ou seu@email.com';
+    $('#tel').autocomplete = criar ? 'tel' : 'username';
     $('#tit').textContent = criar ? 'Criar conta' : 'Entrar';
     $('#go').textContent = criar ? 'Criar conta' : 'Entrar';
     $('#tx1').textContent = criar ? 'Já tem conta?' : 'Primeira vez aqui?';
@@ -88,7 +97,7 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   };
   $('#troca').onclick = () => modo(!criar);
   if (qs.get('criar')) modo(true);
-  $('#tel').oninput = (e) => { const d = e.target.value.replace(/\D/g, '').slice(0, 11); e.target.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d; };
+  $('#tel').oninput = (e) => { if (/[@a-z]/i.test(e.target.value)) return; const d = e.target.value.replace(/\D/g, '').slice(0, 11); e.target.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d; };
 
   $('#esqueci').onclick = () => {
     const link = DC.cfg && DC.cfg.central_whatsapp ? DC.wa(DC.cfg.central_whatsapp, 'Olá! Esqueci minha senha da Saúde Pra Você. Meu celular é ' + $('#tel').value) : null;
@@ -101,15 +110,26 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   $('#form').onsubmit = (e) => {
     e.preventDefault();
     DC.busy($('#go'), async () => {
-      const tel = DC.tel($('#tel').value);
-      if (!tel) throw new Error('Informe o celular com DDD');
+      const campo = $('#tel').value.trim();
+      if (!criar && campo.includes('@')) {
+        const r = await fetch('/api/entrar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: campo, senha: $('#senha').value }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || 'E-mail ou senha incorretos');
+        const { error } = await sb.auth.setSession({ access_token: j.access_token, refresh_token: j.refresh_token });
+        if (error) throw error;
+        return depois();
+      }
+      const tel = DC.tel(campo);
+      if (!tel) throw new Error(criar ? 'Informe o celular com DDD' : 'Informe o celular com DDD ou o e-mail');
       const email = DC.emailTec(tel), password = $('#senha').value;
       if (criar) {
         const nome = $('#nome').value.trim();
         if (nome.split(/\s+/).length < 2) throw new Error('Informe nome e sobrenome');
         if (password.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres');
         if (password !== $('#senha2').value) throw new Error('As senhas não conferem');
-        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: nome, phone: tel } } });
+        const contato = $('#email').value.trim().toLowerCase();
+        if (contato && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contato)) throw new Error('Confira o e-mail ou deixe em branco');
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: nome, phone: tel, contact_email: contato || undefined } } });
         if (error) throw new Error(/registered|exists/i.test(error.message) ? 'Este celular já tem conta. Toque em Entrar.' : error.message);
         if (!data.session) {
           const r = await sb.auth.signInWithPassword({ email, password });

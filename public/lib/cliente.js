@@ -231,13 +231,13 @@
       <div class="card col" style="max-width:640px">
         <label class="f">Nome<input class="in" id="nm" value="${esc(p.nome)}" maxlength="80"></label>
         <label class="f">Celular<input class="in" value="${esc(DC.telBonito(p.telefone))}" disabled></label>
-        <label class="f">E-mail (opcional)<small>para receber avisos de pedidos e pagamentos</small><input class="in" id="em" type="email" value="${esc(p.email || '')}"></label>
+        <label class="f">E-mail (opcional)<small>para entrar também com o e-mail e receber avisos</small><input class="in" id="em" type="email" value="${esc(p.email || '')}"></label>
         <div class="row"><button class="btn" id="sv">Salvar</button><button class="btn btn-ghost" id="sn">Trocar senha</button></div></div>`;
     $('#sv').onclick = () => DC.busy($('#sv'), async () => {
       const em = $('#em').value.trim();
       if (em && !/^\S+@\S+\.\S+$/.test(em)) throw new Error('E-mail inválido');
       const { error: e } = await sb.from('profiles').update({ nome: $('#nm').value.trim() || p.nome, email: em || null }).eq('id', me.id);
-      if (e) throw e; DC.toast('Dados salvos');
+      if (e) throw (e.code === '23505' ? new Error('Esse e-mail já está em outra conta') : e); DC.toast('Dados salvos');
     });
     $('#sn').onclick = () => trocarSenha();
   }

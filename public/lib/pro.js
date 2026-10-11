@@ -142,7 +142,9 @@
         </div>
         <label class="f">Bairros ou cidades que atende<input class="in" id="prg" maxlength="200" value="${esc(pro.regioes || '')}" placeholder="ex.: Zona Sul, Centro, Bonfim Paulista"></label>
         <div class="col" style="gap:6px"><b class="small">Atende em</b><div class="row">${['residencia', 'hospital', 'clinica'].map((t) => `<label class="check"><input type="checkbox" data-at="${t}" ${(pro.atende || []).includes(t) ? 'checked' : ''}>${DC.LOCAL[t]}</label>`).join('')}</div></div>
-        <div class="col" style="gap:6px"><b class="small">Cuidados que você faz</b><div class="chips" id="hb">${DC.HABIL.map((h) => `<button type="button" class="chip ${hab.has(h) ? '' : 'off'}" data-h="${esc(h)}">${esc(h)}</button>`).join('')}</div></div>
+        <div class="col" style="gap:6px"><b class="small">Cuidados que você faz</b><div class="chips" id="hb">${[...DC.HABIL, ...[...hab].filter((h) => !DC.HABIL.includes(h))].map((h) => `<button type="button" class="chip ${hab.has(h) ? '' : 'off'}" data-h="${esc(h)}">${esc(h)}</button>`).join('')}</div>
+          <div class="row"><input class="in grow" id="hbNovo" maxlength="40" placeholder="Outro cuidado que você faz (ex.: fisioterapia respiratória)" aria-label="Outro cuidado"><button type="button" class="btn btn-sm btn-ghost" id="hbAdd">Adicionar</button></div>
+          <p class="tiny mute">Toque num cuidado para marcar ou desmarcar. Os que você escrever ficam salvos no seu perfil.</p></div>
       </div></div>
       <div class="side">
         <div class="card col"><h2>Quanto você quer ganhar</h2><p class="small mute">Seu valor chega inteiro para você. A taxa da plataforma é somada por cima no preço que o contratante vê.</p>
@@ -159,7 +161,21 @@
     const corenVis = () => $('#corenBox').classList.toggle('hide', !(DC.ESPEC[esp] && DC.ESPEC[esp].coren));
     $$('#es [data-e]').forEach((b) => (b.onclick = () => { esp = b.dataset.e; $$('#es [data-e]').forEach((x) => x.classList.toggle('on', x === b)); corenVis(); }));
     corenVis();
-    $$('#hb [data-h]').forEach((b) => (b.onclick = () => b.classList.toggle('off')));
+    const ligaHab = () => $$('#hb [data-h]').forEach((b) => (b.onclick = () => b.classList.toggle('off')));
+    ligaHab();
+    const addHab = () => {
+      const t = $('#hbNovo').value.replace(/\s+/g, ' ').trim().slice(0, 40);
+      if (!t) return;
+      const ja = $$('#hb [data-h]').find((b) => DC.norm(b.dataset.h) === DC.norm(t));
+      if (ja) ja.classList.remove('off');
+      else {
+        if ($$('#hb [data-h]').length >= 40) return DC.toast('Limite de cuidados atingido', true);
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.h = t; b.textContent = t; $('#hb').appendChild(b); ligaHab();
+      }
+      $('#hbNovo').value = ''; $('#hbNovo').focus();
+    };
+    $('#hbAdd').onclick = addHab;
+    $('#hbNovo').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addHab(); } };
     const num = (s) => { const v = +$(s).value; return v > 0 ? Math.round(v * 100) / 100 : null; };
     const coleta = () => ({ nome: $('#pn').value.trim(), especialidade: esp || null, titulo: $('#pt').value.trim(), resumo: $('#pr').value.trim(),
       coren: $('#co').value.trim() || null, coren_uf: $('#cuf').value || null, experiencia_anos: $('#px').value === '' ? null : +$('#px').value,
@@ -218,9 +234,18 @@
           ${me.mpConectado ? '<div class="banner ok">Conta Mercado Pago conectada. Os pagamentos caem nela e você saca para o seu banco quando quiser.</div>'
             : '<p class="small">Conecte uma conta Mercado Pago (é grátis) para receber os pagamentos dos atendimentos. Do Mercado Pago você transfere para o seu banco.</p><button class="btn btn-dark" id="mp">Conectar Mercado Pago</button>'}</div>
         <div class="card col"><h2>Por mês</h2>${Object.keys(porMes).length ? `<div class="list small">${Object.entries(porMes).map(([k, v]) => `<div class="li"><span class="grow">${k.split('-').reverse().join('/')}</span><b>${brl(v, 2)}</b></div>`).join('')}</div>` : '<p class="small mute">—</p>'}</div>
-        <div class="card col"><h2>Senha</h2><button class="btn btn-ghost btn-sm" id="sn">Trocar senha</button></div>
+        <div class="card col"><h2>Acesso</h2>
+          <label class="f">E-mail (opcional)<small>para entrar também com o e-mail e receber avisos</small><input class="in" id="em" type="email" maxlength="120" value="${esc(me.email || '')}"></label>
+          <div class="row"><button class="btn btn-sm" id="sve">Salvar e-mail</button><button class="btn btn-ghost btn-sm" id="sn">Trocar senha</button></div></div>
       </div></div>`;
     liga(recebimentos);
+    $('#sve').onclick = () => DC.busy($('#sve'), async () => {
+      const em = $('#em').value.trim().toLowerCase();
+      if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) throw new Error('E-mail inválido');
+      const { error: e } = await sb.from('profiles').update({ email: em || null }).eq('id', me.id);
+      if (e) throw (e.code === '23505' ? new Error('Esse e-mail já está em outra conta') : e);
+      me.email = em || null; DC.toast(em ? 'Pronto! Agora você também entra com ' + em : 'E-mail removido');
+    });
     if ($('#mp')) $('#mp').onclick = () => DC.busy($('#mp'), async () => {
       try { const r = await DC.api('/api/mp-conectar'); location.href = r.url; }
       catch (e) {
