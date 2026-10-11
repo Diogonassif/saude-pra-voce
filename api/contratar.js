@@ -21,8 +21,9 @@ async function carregar(id) {
 // monta e grava uma contratação (usado pelo contratante no catálogo e pela central ao indicar)
 async function criarContratacao(b, clienteId, origem, necessidadeId) {
   if (!isUuid(b.pro_id)) throw fail(400, 'Escolha um profissional');
-  const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,valor_hora,valor_12h,valor_24h`);
+  const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,coren_status,valor_hora,valor_12h,valor_24h`);
   if (!pro || !pro.publicado) throw fail(404, 'Este profissional não está disponível agora');
+  if (['tecnico', 'enfermeiro'].includes(pro.especialidade) && pro.coren_status !== 'ativo') throw fail(409, 'O COREN deste profissional ainda não foi conferido pela central');
   if (pro.user_id === clienteId) throw fail(400, 'Você não pode contratar a si mesmo');
   const modalidade = MODAL[b.modalidade] ? b.modalidade : 'hora';
   const base = +pro[MODAL[modalidade].campo];

@@ -19,11 +19,14 @@
   if (qs.get('mp') === 'ok') DC.toast('Conta Mercado Pago conectada. Você já pode receber.');
   if (qs.get('mp') === 'erro') DC.toast('Não foi possível conectar o Mercado Pago. Tente de novo.', true);
 
+  const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
   const precisaCoren = () => DC.ESPEC[pro.especialidade] && DC.ESPEC[pro.especialidade].coren;
   const pendencias = () => {
     const L = [];
     if (!pro.especialidade || !pro.titulo || !pro.valor_hora) L.push(['#perfil', 'Complete seu perfil: especialidade, título e valor por hora']);
-    if (precisaCoren() && !pro.coren) L.push(['#perfil', 'Informe seu COREN']);
+    if (precisaCoren() && (!pro.coren || !pro.coren_uf)) L.push(['#perfil', 'Informe o número do seu COREN e a UF']);
+    else if (precisaCoren() && pro.coren_status === 'pendente') L.push(['#perfil', 'Seu COREN está em conferência pela central. Você aparece no catálogo assim que for confirmado.']);
+    else if (precisaCoren() && pro.coren_status === 'irregular') L.push(['#perfil', 'A central não encontrou seu COREN ativo. Confira o número e a UF ou fale com a central.']);
     if (!priv.doc_identidade) L.push(['#perfil', 'Envie seus documentos para ganhar o selo verificado']);
     if (!me.mpConectado) L.push(['#recebimentos', 'Conecte sua conta Mercado Pago para receber']);
     if (!pro.publicado) L.push(['#perfil', 'Publique seu perfil para aparecer no catálogo']);
@@ -127,7 +130,8 @@
       <div class="split"><div class="main"><div class="card col">
         <label class="f">Nome completo<input class="in" id="pn" value="${esc(pro.nome)}" maxlength="80"></label>
         <div class="col" style="gap:6px"><b class="small">Você é</b><div class="grid2" id="es">${Object.entries(DC.ESPEC).map(([k, v]) => `<button type="button" class="opt ${pro.especialidade === k ? 'on' : ''}" data-e="${k}"><b>${v.nome}</b><span>${v.dica}</span></button>`).join('')}</div></div>
-        <div class="grid2" id="corenBox"><label class="f">COREN<input class="in" id="co" value="${esc(pro.coren || '')}" maxlength="30" placeholder="ex.: 123.456-TE"></label><label class="f">UF do COREN<input class="in" id="cuf" value="${esc(pro.coren_uf || '')}" maxlength="2"></label></div>
+        <div class="col" id="corenBox" style="gap:6px"><div class="grid2"><label class="f">Número do COREN (obrigatório)<input class="in" id="co" value="${esc(pro.coren || '')}" maxlength="30" inputmode="numeric" placeholder="ex.: 123456"></label><label class="f">UF do COREN (obrigatório)<select class="in" id="cuf"><option value="">Escolha</option>${UFS.map((u) => `<option ${pro.coren_uf === u ? 'selected' : ''}>${u}</option>`).join('')}</select></label></div>
+          <p class="small">${pro.coren_status === 'ativo' ? '<span class="tag t-green">COREN CONFERIDO</span> A central confirmou no Cofen que seu COREN está ativo.' : pro.coren_status === 'irregular' ? '<span class="tag t-red">COREN NÃO CONFIRMADO</span> A central não encontrou seu COREN ativo. Confira o número e a UF.' : '<span class="tag t-amber">EM CONFERÊNCIA</span> A central confere seu COREN no site do Cofen. Enfermagem só aparece no catálogo com o COREN confirmado.'}</p></div>
         <label class="f">Título<small>uma frase que resume você</small><input class="in" id="pt" value="${esc(pro.titulo)}" maxlength="100" placeholder="ex.: Técnica de enfermagem com experiência em UTI e idosos"></label>
         <label class="f">Sobre você<textarea class="in" id="pr" maxlength="1500" placeholder="Experiência, onde já trabalhou, como cuida">${esc(pro.resumo)}</textarea></label>
         <div class="grid2">
@@ -158,7 +162,7 @@
     $$('#hb [data-h]').forEach((b) => (b.onclick = () => b.classList.toggle('off')));
     const num = (s) => { const v = +$(s).value; return v > 0 ? Math.round(v * 100) / 100 : null; };
     const coleta = () => ({ nome: $('#pn').value.trim(), especialidade: esp || null, titulo: $('#pt').value.trim(), resumo: $('#pr').value.trim(),
-      coren: $('#co').value.trim() || null, coren_uf: $('#cuf').value.trim().toUpperCase() || null, experiencia_anos: $('#px').value === '' ? null : +$('#px').value,
+      coren: $('#co').value.trim() || null, coren_uf: $('#cuf').value || null, experiencia_anos: $('#px').value === '' ? null : +$('#px').value,
       genero: $('#pg').value || null, cidade: $('#pc').value.trim() || null, uf: $('#pu').value.trim().toUpperCase() || null, regioes: $('#prg').value.trim(),
       atende: $$('[data-at]').filter((c) => c.checked).map((c) => c.dataset.at), habilidades: $$('#hb [data-h]').filter((b) => !b.classList.contains('off')).map((b) => b.dataset.h),
       valor_hora: num('#vh'), valor_12h: num('#v12'), valor_24h: num('#v24') });
@@ -166,8 +170,11 @@
       const row = Object.assign(coleta(), extra || {});
       if (row.publicado) {
         if (!row.especialidade || !row.titulo || !row.valor_hora) throw new Error('Para publicar, escolha a especialidade e preencha título e valor por hora');
-        if (DC.ESPEC[row.especialidade].coren && !row.coren) throw new Error('Para enfermagem, informe o COREN');
         if (!row.atende.length) throw new Error('Marque onde você atende');
+      }
+      if (row.especialidade && DC.ESPEC[row.especialidade].coren) {
+        if (!row.coren || !/\d{3,}/.test(row.coren)) throw new Error('Para técnico(a) de enfermagem e enfermeiro(a), o número do COREN é obrigatório');
+        if (!row.coren_uf) throw new Error('Escolha a UF do seu COREN');
       }
       const { error } = await sb.from('pros').update(row).eq('user_id', me.id); if (error) throw error;
       await sb.from('profiles').update({ nome: row.nome || me.nome }).eq('id', me.id);

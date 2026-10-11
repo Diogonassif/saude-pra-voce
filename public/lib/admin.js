@@ -147,15 +147,23 @@
     if (error) throw error;
     const PV = Object.fromEntries((pv.data || []).map((x) => [x.user_id, x]));
     const TEL = Object.fromEntries((pf.data || []).map((x) => [x.id, x.telefone]));
-    app.innerHTML = `<div class="head"><div><h1>Profissionais</h1><p>Confira documentos e o COREN no site do conselho antes de dar o selo verificado.</p></div><input class="in" id="q" placeholder="Buscar" style="max-width:280px" aria-label="Buscar profissionais"></div>
+    app.innerHTML = `<div class="head"><div><h1>Profissionais</h1><p>Técnicos e enfermeiros só aparecem no catálogo depois que a central confere o COREN no Cofen. Clique em "Consultar no Cofen", busque pelo número/UF e marque o resultado.</p></div><input class="in" id="q" placeholder="Buscar" style="max-width:280px" aria-label="Buscar profissionais"></div>
+      ${(() => { const n = (data || []).filter((p) => DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren && p.coren && p.coren_status === 'pendente').length; return n ? `<div class="banner warn">${n} COREN aguardando conferência.</div>` : ''; })()}
       <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Profissional</th><th>Valores (dele)</th><th>COREN</th><th>Documentos</th><th>Catálogo</th><th>Selo</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
     const docs = (u) => { const x = PV[u] || {}; return [['doc_identidade', 'Identidade'], ['doc_coren', 'COREN'], ['doc_antecedentes', 'Antecedentes']].map(([k, n]) => x[k] ? `<button class="link small" data-doc="${esc(x[k])}">${n}</button>` : `<span class="tiny mute">${n} —</span>`).join('<br>') + (x.cpf ? `<br><span class="tiny">CPF ${esc(x.cpf)}</span>` : ''); };
+    const corenCel = (p) => {
+      if (!(DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren)) return p.coren ? esc(p.coren) + (p.coren_uf ? '/' + esc(p.coren_uf) : '') : '<span class="mute">não se aplica</span>';
+      if (!p.coren) return '<span class="tag t-red">SEM COREN</span>';
+      const tag = p.coren_status === 'ativo' ? `<span class="tag t-green">ATIVO</span>${p.coren_conferido_em ? '<br><span class="tiny mute">conferido ' + DC.data(p.coren_conferido_em) + '</span>' : ''}` : p.coren_status === 'irregular' ? '<span class="tag t-red">IRREGULAR</span>' : '<span class="tag t-amber">A CONFERIR</span>';
+      return `<b>${esc(p.coren)}/${esc(p.coren_uf || '?')}</b><br>${tag}<br><button class="link small" data-cofen="${esc(p.coren)}">Consultar no Cofen</button>
+        <br><button class="link small" data-cst="ativo" data-u="${p.user_id}">Ativo</button> · <button class="link small" data-cst="irregular" data-u="${p.user_id}">Irregular</button>`;
+    };
     const draw = () => {
       const q = DC.norm($('#q').value);
       $('#tb').innerHTML = (data || []).filter((p) => !q || DC.norm(p.nome + p.titulo + p.cidade).includes(q)).map((p) => `<tr>
         <td><b>${esc(p.nome)}</b><br><span class="small mute">${esc(DC.espec(p.especialidade))}${p.cidade ? ' · ' + esc(p.cidade) : ''} · ${esc(DC.telBonito(TEL[p.user_id]))}</span></td>
         <td class="small">${p.valor_hora ? brl(p.valor_hora, 2) + '/h' : '—'}${p.valor_12h ? '<br>' + brl(p.valor_12h, 2) + '/12h' : ''}${p.valor_24h ? '<br>' + brl(p.valor_24h, 2) + '/24h' : ''}</td>
-        <td class="small">${esc(p.coren || '—')}${p.coren_uf ? '/' + esc(p.coren_uf) : ''}</td><td>${docs(p.user_id)}</td>
+        <td class="small">${corenCel(p)}</td><td>${docs(p.user_id)}</td>
         <td><label class="check"><input type="checkbox" data-pub="${p.user_id}" ${p.publicado ? 'checked' : ''}>Publicado</label></td>
         <td><label class="check"><input type="checkbox" data-ver="${p.user_id}" ${p.verificado ? 'checked' : ''}>Selo</label></td>
         <td><button class="btn btn-sm btn-ghost" data-senha="${p.user_id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum profissional.</td></tr>';
@@ -163,6 +171,15 @@
       $$('[data-pub]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ publicado: c.checked }).eq('user_id', c.dataset.pub); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'No catálogo' : 'Fora do catálogo'); }));
       $$('[data-doc]').forEach((b) => (b.onclick = async () => { const { data: u, error: e } = await sb.storage.from('docs').createSignedUrl(b.dataset.doc, 300); if (e) return DC.erro(e); window.open(u.signedUrl, '_blank', 'noopener'); }));
       $$('[data-senha]').forEach((b) => (b.onclick = () => novaSenha(b, b.dataset.senha)));
+      $$('[data-cofen]').forEach((b) => (b.onclick = () => { try { navigator.clipboard.writeText(b.dataset.cofen); DC.toast('Número do COREN copiado. Cole na consulta do Cofen.'); } catch (e) { /* sem área de transferência */ } window.open('https://sigen.cofen.gov.br/profissional/consultar', '_blank', 'noopener'); }));
+      $$('[data-cst]').forEach((b) => (b.onclick = async () => {
+        const st = b.dataset.cst, p = data.find((x) => x.user_id === b.dataset.u);
+        const upd = { coren_status: st, coren_conferido_em: new Date().toISOString() };
+        if (st === 'irregular') Object.assign(upd, { verificado: false });
+        const { error: e } = await sb.from('pros').update(upd).eq('user_id', p.user_id);
+        if (e) return DC.erro(e);
+        Object.assign(p, upd); DC.toast(st === 'ativo' ? 'COREN confirmado. O profissional já pode aparecer no catálogo.' : 'COREN marcado como irregular. O profissional fica fora do catálogo.'); draw();
+      }));
     };
     $('#q').oninput = draw; draw();
   }
