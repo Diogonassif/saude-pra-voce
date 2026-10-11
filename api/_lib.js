@@ -24,11 +24,13 @@ export async function getUser(token) {
   if (!r.ok) return null;
   return r.json();
 }
+// cabeçalhos da chave de serviço: a chave nova (sb_secret_...) vai só no apikey; a antiga (JWT) também no Authorization
+export const svc = () => { const k = env('SUPABASE_SERVICE_ROLE_KEY'); return k.startsWith('eyJ') ? { apikey: k, authorization: 'Bearer ' + k } : { apikey: k }; };
 // PostgREST com a chave de serviço (ignora RLS: use só depois de checar o acesso)
 export async function admin(path, opts = {}) {
   const r = await fetch(SB() + '/rest/v1/' + path, {
     method: opts.method || 'GET',
-    headers: Object.assign({ apikey: env('SUPABASE_SERVICE_ROLE_KEY'), authorization: 'Bearer ' + env('SUPABASE_SERVICE_ROLE_KEY'), 'content-type': 'application/json' },
+    headers: Object.assign(svc(), { 'content-type': 'application/json' },
       opts.prefer ? { prefer: opts.prefer } : {}),
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });

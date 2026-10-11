@@ -1,5 +1,5 @@
 // A central gera uma senha nova para quem esqueceu (o login é por celular + senha, sem SMS).
-import { send, readJson, who, one, isUuid, env, fail, handler } from './_lib.js';
+import { send, readJson, who, one, isUuid, env, fail, handler, svc } from './_lib.js';
 import crypto from 'node:crypto';
 
 export default handler(async (req, res) => {
@@ -12,7 +12,7 @@ export default handler(async (req, res) => {
   if (!p) throw fail(404, 'Usuário não encontrado');
   const senha = 'dc' + crypto.randomInt(100000, 999999);
   const r = await fetch(env('SUPABASE_URL') + '/auth/v1/admin/users/' + p.id, { method: 'PUT',
-    headers: { apikey: env('SUPABASE_SERVICE_ROLE_KEY'), authorization: 'Bearer ' + env('SUPABASE_SERVICE_ROLE_KEY'), 'content-type': 'application/json' },
+    headers: { ...svc(), 'content-type': 'application/json' },
     body: JSON.stringify({ password: senha }) });
   if (!r.ok) throw fail(502, 'Não deu para trocar a senha agora');
   return send(res, 200, { ok: true, senha, nome: p.nome, telefone: p.telefone });
