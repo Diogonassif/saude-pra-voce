@@ -1,3 +1,3 @@
-{ "name": "debcare", "private": true, "version": "1.0.0", "type": "module",
-  "description": "DebCare · contratação de profissionais de saúde e cuidado (Vercel + Supabase), base ITMindMatch / MindFy Tech",
+{ "name": "saude-pra-voce", "private": true, "version": "1.0.0", "type": "module",
+  "description": "Saúde Pra Você · contratação de profissionais de saúde e cuidado (Vercel + Supabase), base ITMindMatch / MindFy Tech",
   "engines": { "node": ">=18" } }

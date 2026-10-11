@@ -1,4 +1,4 @@
-/* DebCare · estilos comuns */
+/* Saúde Pra Você · estilos comuns */
 :root {
   --navy: #0E2B36; --ink: #08202A; --blue: #17705F; --blue-d: #0F574A; --sky: #6FE0C6; --green: #2BB59A; --green-d: #1F8C76; --mint: #9DF0DC;
   --coral: #F08A6C; --amber: #F6C453; --red: #C2413A; --bg: #F2F6F6; --card: #FFFFFF; --line: #DCE6E8; --line2: #EAF0F1; --mute: #55666C; --text: #0E2B36;
@@ -32,7 +32,7 @@ img { max-width: 100%; }
 .brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-weight: 800; font-size: 19px; letter-spacing: -.3px; }
 .brand:hover { color: #fff; }
 .brand .mk { display: inline-flex; } .brand .mk svg { display: block; border-radius: 8px; }
-.brand .wm { font-weight: 800; letter-spacing: -.4px; } .brand .wm b { color: var(--sky); font-weight: 800; }
+.brand .wm { font-weight: 800; letter-spacing: -.3px; white-space: nowrap; } .brand .wm b { color: var(--sky); font-weight: 800; }
 .brand small { font-size: 11px; font-weight: 600; color: #A8C3C8; letter-spacing: 0; margin-left: 2px; }
 .nav { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
 .nav a, .nav button { color: #C5DADD; background: none; border: 0; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
@@ -167,7 +167,7 @@ details.filtros[open] > summary { margin-bottom: 12px; }
   .nav a, .nav button { white-space: nowrap; }
 }
 
-/* DebCare */
+/* Saúde Pra Você */
 .pc { display: flex; flex-direction: column; gap: 10px; }
 .pc .head-pro { display: flex; gap: 12px; align-items: flex-start; }
 .pc .pr { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }

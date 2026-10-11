@@ -1,13 +1,13 @@
--- DebCare · banco base
+-- Saúde Pra Você · banco base
 -- Contratação de profissionais de saúde e cuidado: enfermeiros, técnicos de enfermagem,
 -- cuidadores e acompanhantes hospitalares.
--- Papéis: pro (profissional), cliente (contratante), admin (central DebCare e equipe Mind).
+-- Papéis: pro (profissional), cliente (contratante), admin (central Saúde Pra Você e equipe Mind).
 --
 -- Regras de dinheiro:
 --   o profissional define o valor dele (hora, plantão 12h, plantão 24h);
---   o contratante vê esse valor + 15% DebCare + 10% Mind (soma simples sobre o valor do profissional);
---   o pagamento cai na conta Mercado Pago do profissional e os 25% vão para a conta da DebCare pelo split;
---   a DebCare repassa à Mind os 10% dela (controle no painel).
+--   o contratante vê esse valor + 15% Saúde Pra Você + 10% Mind (soma simples sobre o valor do profissional);
+--   o pagamento cai na conta Mercado Pago do profissional e os 25% vão para a conta da Saúde Pra Você pelo split;
+--   a Saúde Pra Você repassa à Mind os 10% dela (controle no painel).
 -- Quem vê o quê:
 --   contratante só vê o preço final (tabela contratacao_cliente e função catalogo);
 --   profissional só vê o valor dele (tabela contratacao_pro);
@@ -26,7 +26,7 @@ insert into public.config(key, value) values
   ('taxa_debcare', '15'),
   ('taxa_mind', '10'),
   ('admins', '[]'),               -- celulares da central/Mind, só dígitos com 55 (ex.: "5516999990000")
-  ('central_whatsapp', '""');     -- WhatsApp da central DebCare, só dígitos com 55
+  ('central_whatsapp', '""');     -- WhatsApp da central Saúde Pra Você, só dígitos com 55
 
 -- ---------------------------------------------------------------- utilidades
 create or replace function public.so_digitos(s text) returns text
@@ -125,7 +125,7 @@ create table public.pros (
   valor_12h numeric(10,2) check (valor_12h > 0),
   valor_24h numeric(10,2) check (valor_24h > 0),
   publicado boolean not null default false,
-  verificado boolean not null default false, -- selo DebCare: documentos e COREN conferidos
+  verificado boolean not null default false, -- selo Saúde Pra Você: documentos e COREN conferidos
   rating numeric(3,2),
   n_avaliacoes int not null default 0,
   created_at timestamptz not null default now(),
@@ -307,7 +307,7 @@ create table public.pagamentos (
   id uuid primary key default gen_random_uuid(),
   contratacao_id uuid not null references public.contratacoes(id) on delete cascade,
   valor_total numeric(14,2) not null,
-  taxa numeric(14,2) not null,              -- marketplace_fee: DebCare + Mind
+  taxa numeric(14,2) not null,              -- marketplace_fee: Saúde Pra Você + Mind
   debcare numeric(14,2) not null,
   mind numeric(14,2) not null,
   mp_pref_id text,
@@ -318,7 +318,7 @@ create table public.pagamentos (
 );
 create index on public.pagamentos(contratacao_id);
 
--- repasses da DebCare para a Mind (os 10% da gestora da plataforma)
+-- repasses da Saúde Pra Você para a Mind (os 10% da gestora da plataforma)
 create table public.repasses_mind (
   id uuid primary key default gen_random_uuid(),
   referencia text not null,                 -- ex.: 2026-10
@@ -533,7 +533,7 @@ do $$ begin
 end $$;
 
 -- ---------------------------------------------------------------- MindSaaS: cobrança dos 10% da Mind
--- Cada pagamento aprovado gera a parte da Mind (pagamentos.mind). A DebCare recebe tudo pelo split
+-- Cada pagamento aprovado gera a parte da Mind (pagamentos.mind). A Saúde Pra Você recebe tudo pelo split
 -- e repassa à Mind; o painel MindSaaS lê este resumo para alertar quando há valor a cobrar.
 create schema if not exists mindsaas;
 create or replace function mindsaas.debcare_cobranca()

@@ -1,4 +1,4 @@
-/* DebCare · núcleo do navegador: sessão, API, utilidades de tela */
+/* Saúde Pra Você · núcleo do navegador: sessão, API, utilidades de tela */
 (function () {
   const DC = window.DC = window.DC || {};
   DC.sb = window.supabase.createClient(DC.url, DC.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
@@ -41,7 +41,7 @@
   DC.stTag = (s) => { const x = DC.STATUS[s] || [s, 't-gray']; return `<span class="tag ${x[1]}">${DC.esc(x[0])}</span>`; };
   DC.NEC = { aberta: ['Na central', 't-amber'], em_busca: ['Central buscando', 't-blue'], atendida: ['Atendida', 't-green'], cancelada: ['Cancelada', 't-gray'] };
   DC.necTag = (s) => { const x = DC.NEC[s] || [s, 't-gray']; return `<span class="tag ${x[1]}">${DC.esc(x[0])}</span>`; };
-  DC.estrelas = (p) => (p.rating ? `<span class="stars">★ ${(+p.rating).toFixed(1).replace('.', ',')}</span> <span class="tiny mute">(${p.n_avaliacoes})</span>` : '<span class="tiny mute">Novo no DebCare</span>');
+  DC.estrelas = (p) => (p.rating ? `<span class="stars">★ ${(+p.rating).toFixed(1).replace('.', ',')}</span> <span class="tiny mute">(${p.n_avaliacoes})</span>` : '<span class="tiny mute">Novo por aqui</span>');
   DC.periodo = (c) => DC.data(c.inicio) + (c.fim && c.fim !== c.inicio ? ' a ' + DC.data(c.fim) : '');
   DC.qtdTxt = (c) => (c.modalidade === 'hora' ? `${c.dias} dia(s) × ${c.horas_dia}h = ${+c.quantidade}h` : `${+c.quantidade} plantão(ões) de ${c.modalidade === 'plantao12' ? '12h' : '24h'}`);
   // dias do período nos dias da semana escolhidos (igual ao servidor)
@@ -114,7 +114,7 @@
     };
     window.addEventListener('hashchange', go); go();
   };
-  DC.marca = (sub) => `<span class="mk" aria-hidden="true"><svg viewBox="0 0 64 64" width="30" height="30"><rect x="1" y="1" width="62" height="62" rx="15" fill="#0E2B36" stroke="rgba(255,255,255,.22)" stroke-width="2"/><path d="M32 50C18 41 12 33 12 25c0-6.5 5-11 10.8-11 4.2 0 7.4 2.4 9.2 5.6C33.8 16.4 37 14 41.2 14 47 14 52 18.5 52 25c0 8-6 16-20 25z" fill="#2BB59A"/><path d="M32 25v12M26 31h12" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg></span><span class="wm">Deb<b>Care</b></span>${sub ? `<small>${DC.esc(sub)}</small>` : ''}`;
+  DC.marca = (sub) => `<span class="mk" aria-hidden="true"><svg viewBox="0 0 64 64" width="30" height="30"><rect x="1" y="1" width="62" height="62" rx="15" fill="#0E2B36" stroke="rgba(255,255,255,.22)" stroke-width="2"/><path d="M32 50C18 41 12 33 12 25c0-6.5 5-11 10.8-11 4.2 0 7.4 2.4 9.2 5.6C33.8 16.4 37 14 41.2 14 47 14 52 18.5 52 25c0 8-6 16-20 25z" fill="#2BB59A"/><path d="M32 25v12M26 31h12" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg></span><span class="wm">Saúde <b>Pra Você</b></span>${sub ? `<small>${DC.esc(sub)}</small>` : ''}`;
   DC.topo = (me, abas, aud) => {
     const el = DC.$('#top');
     el.innerHTML = `<div class="top-in">

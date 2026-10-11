@@ -1,4 +1,4 @@
-// Leitura para o painel MindSaaS: quanto a DebCare deve à Mind (10% de cada atendimento pago) e o que já repassou.
+// Leitura para o painel MindSaaS: quanto a Saúde Pra Você deve à Mind (10% de cada atendimento pago) e o que já repassou.
 // Autenticação por chave: header x-api-key = MINDSAAS_KEY (mesma chave cadastrada no MindSaaS).
 import { send, env, fail, handler } from './_lib.js';
 import crypto from 'node:crypto';
@@ -15,5 +15,5 @@ export default handler(async (req, res) => {
   if (!r.ok) throw fail(502, 'Não deu para ler a cobrança');
   const meses = await r.json();
   const saldo = Math.round(meses.reduce((s, m) => s + +m.saldo, 0) * 100) / 100;
-  return send(res, 200, { app: 'DebCare', cobrar: saldo > 0, saldo, meses });
+  return send(res, 200, { app: 'Saúde Pra Você', cobrar: saldo > 0, saldo, meses });
 });

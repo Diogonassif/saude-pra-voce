@@ -30,8 +30,8 @@ export default handler(async (req, res) => {
       body: dias.map((dia) => ({ pro_id: c.pro_id, dia, status: 'alocado' })) });
     if (c.necessidade_id) await admin(`necessidades?id=eq.${c.necessidade_id}`, { method: 'PATCH', body: { status: 'atendida', updated_at: new Date().toISOString() } });
     const pro = await one(`contratacao_pro?contratacao_id=eq.${c.id}&select=total`);
-    sendEmail({ to: await emailDe(c.cliente_id), subject: 'Pagamento confirmado · DebCare', html: shell('Atendimento confirmado', `<p>${escH(c.pro_nome)} está confirmado(a). O contato dele(a) já aparece no app.</p>`) });
-    sendEmail({ to: await emailDe(c.pro_id), subject: 'Atendimento pago · DebCare', html: shell('Atendimento confirmado e pago', `<p>${escH(c.cliente_nome)} pagou. Você recebe <b>${brl(pro && pro.total)}</b> na sua conta Mercado Pago.</p>`) });
+    sendEmail({ to: await emailDe(c.cliente_id), subject: 'Pagamento confirmado · Saúde Pra Você', html: shell('Atendimento confirmado', `<p>${escH(c.pro_nome)} está confirmado(a). O contato dele(a) já aparece no app.</p>`) });
+    sendEmail({ to: await emailDe(c.pro_id), subject: 'Atendimento pago · Saúde Pra Você', html: shell('Atendimento confirmado e pago', `<p>${escH(c.cliente_nome)} pagou. Você recebe <b>${brl(pro && pro.total)}</b> na sua conta Mercado Pago.</p>`) });
   }
   if (['refunded', 'charged_back'].includes(st) && pg.status === 'approved') {
     sendEmail({ to: await emailCentral(), subject: `Estorno no atendimento #${c.codigo}`, html: shell('Pagamento estornado', `<p>${escH(c.cliente_nome)} → ${escH(c.pro_nome)}: ${brl(pg.valor_total)} (${escH(st)}). Confira o atendimento no painel.</p>`) });

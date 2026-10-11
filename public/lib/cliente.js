@@ -1,4 +1,4 @@
-/* DebCare · app do contratante */
+/* Saúde Pra Você · app do contratante */
 (async function () {
   const { $, $$, sb, esc, brl } = DC;
   const me = await DC.boot('cliente'); if (!me) return;
@@ -20,7 +20,7 @@
     if (error) throw error;
     CAT = data || [];
     const st = { e: qs.get('esp') || '', q: '', local: '', plantao: '', gen: '', ver: false };
-    const wa = DC.centralWa('Olá! Preciso de ajuda para encontrar um profissional no DebCare.');
+    const wa = DC.centralWa('Olá! Preciso de ajuda para encontrar um profissional na Saúde Pra Você.');
     app.innerHTML = `
       <div class="head"><div><h1>Encontre quem vai cuidar</h1><p>Escolha o profissional, o período e pague pelo app. Tudo registrado e com segurança.</p></div>
         <a class="btn btn-coral" href="#ajuda" id="pedeAjuda">Não encontrei: pedir à central</a></div>
@@ -31,8 +31,8 @@
           <label class="f">Local do atendimento<select class="in" id="fl"><option value="">Qualquer</option><option value="residencia">Em casa</option><option value="hospital">No hospital</option></select></label>
           <label class="f">Plantão<select class="in" id="fp"><option value="">Qualquer</option><option value="preco_12h">Faz plantão de 12h</option><option value="preco_24h">Faz plantão de 24h</option></select></label>
           <label class="f">Preferência<select class="in" id="fg"><option value="">Indiferente</option><option value="feminino">Profissional mulher</option><option value="masculino">Profissional homem</option></select></label>
-          <label class="check"><input type="checkbox" id="fv">Só com selo DebCare</label>
-          <p class="tiny mute">O selo DebCare indica que conferimos documentos e, para enfermagem, o COREN.</p>
+          <label class="check"><input type="checkbox" id="fv">Só com selo verificado</label>
+          <p class="tiny mute">O selo verificado indica que conferimos documentos e, para enfermagem, o COREN.</p>
         </div></details></aside>
         <section class="main"><div class="grid" id="res"></div></section>
       </div>`;
@@ -42,7 +42,7 @@
         && (!st.plantao || p[st.plantao]) && (!st.gen || p.genero === st.gen) && (!st.ver || p.verificado)
         && (!q || DC.norm([p.nome, p.titulo, p.cidade, p.regioes, (p.habilidades || []).join(' '), p.resumo].join(' ')).includes(q)));
       $('#res').innerHTML = L.length ? L.map(cartao).join('')
-        : `<div class="card empty" style="grid-column:1/-1"><b>Nenhum profissional com esses filtros</b>A central DebCare procura para você: conte do que precisa e nós indicamos alguém de confiança.<br><br><a class="btn btn-coral" href="#ajuda">Pedir à central</a>${wa ? ` <a class="btn btn-ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp da central</a>` : ''}</div>`;
+        : `<div class="card empty" style="grid-column:1/-1"><b>Nenhum profissional com esses filtros</b>A nossa central procura para você: conte do que precisa e nós indicamos alguém de confiança.<br><br><a class="btn btn-coral" href="#ajuda">Pedir à central</a>${wa ? ` <a class="btn btn-ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp da central</a>` : ''}</div>`;
       $$('[data-ver]').forEach((b) => (b.onclick = () => verPro(b.dataset.ver)));
       $$('[data-ctr]').forEach((b) => (b.onclick = () => contratar(CAT.find((p) => p.user_id === b.dataset.ctr))));
     };
@@ -57,7 +57,7 @@
   }
   const precos = (p) => `<div class="pr">${Object.entries(DC.MODAL).map(([k, x]) => `<div class="${p[x.campo] ? '' : 'na'}"><span class="tiny mute">${x.nome}</span><b>${p[x.campo] ? brl(p[x.campo]) : '—'}</b></div>`).join('')}</div>`;
   const cartao = (p) => `<article class="card pc">
-      <div class="head-pro">${DC.av(p.nome, p.avatar_url, 'lg')}<div class="grow"><b style="font-size:17px">${esc(p.nome)}</b> ${p.verificado ? '<span class="selo">✓ Selo DebCare</span>' : ''}
+      <div class="head-pro">${DC.av(p.nome, p.avatar_url, 'lg')}<div class="grow"><b style="font-size:17px">${esc(p.nome)}</b> ${p.verificado ? '<span class="selo">✓ Selo verificado</span>' : ''}
         <div class="small mute">${esc(DC.espec(p.especialidade))}${p.experiencia_anos ? ` · ${p.experiencia_anos} ${p.experiencia_anos === 1 ? 'ano' : 'anos'}` : ''}</div>
         <div class="small mute">${esc([p.cidade, p.uf].filter(Boolean).join('/'))}</div><div>${DC.estrelas(p)}</div></div></div>
       ${p.titulo ? `<div class="small"><b>${esc(p.titulo)}</b></div>` : ''}
@@ -70,7 +70,7 @@
     const [ag, av] = await Promise.all([sb.rpc('agenda_pro', { p: id }), sb.rpc('avaliacoes_pro', { p: id })]);
     const st = Object.fromEntries((ag.data || []).map((d) => [d.dia, d.status]));
     const dias = []; for (let i = 0; i < 42; i++) { const d = new Date(Date.now() + i * 864e5 - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10); dias.push([d, st[d] || 'vazio']); }
-    const m = DC.modal(`<div class="row" style="flex-wrap:nowrap">${DC.av(p.nome, p.avatar_url, 'lg')}<div class="grow"><h2>${esc(p.nome)} ${p.verificado ? '<span class="selo">✓ Selo DebCare</span>' : ''}</h2>
+    const m = DC.modal(`<div class="row" style="flex-wrap:nowrap">${DC.av(p.nome, p.avatar_url, 'lg')}<div class="grow"><h2>${esc(p.nome)} ${p.verificado ? '<span class="selo">✓ Selo verificado</span>' : ''}</h2>
         <p class="mute">${esc(DC.espec(p.especialidade))}${p.experiencia_anos ? ` · ${p.experiencia_anos} anos de experiência` : ''}${p.cidade ? ' · ' + esc(p.cidade) + (p.uf ? '/' + esc(p.uf) : '') : ''}</p><p>${DC.estrelas(p)}</p></div></div>
       ${p.titulo ? `<h3>${esc(p.titulo)}</h3>` : ''}
       ${p.resumo ? `<p style="white-space:pre-wrap">${esc(p.resumo)}</p>` : ''}
@@ -108,7 +108,7 @@
         <label class="f">Cidade<input class="in" id="ci" maxlength="80" value="${esc(u.cidade || p.cidade || '')}"></label></div>
       <label class="f">Observações (opcional)<textarea class="in" id="no" maxlength="2000" style="min-height:70px" placeholder="Portaria, animais em casa, quem estará presente…"></textarea></label>
       <div class="resumo-total" id="tot"></div>
-      <div class="priv"><span aria-hidden="true">🔒</span><span>Os dados do paciente ficam só entre você, o profissional e a central DebCare. O contato do profissional aparece depois do pagamento.</span></div>
+      <div class="priv"><span aria-hidden="true">🔒</span><span>Os dados do paciente ficam só entre você, o profissional e a nossa central. O contato do profissional aparece depois do pagamento.</span></div>
       <div class="acts"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-green" id="env">Enviar pedido</button></div>`, { wide: true, semFoco: true });
     const val = () => {
       const ini = $('#ini', m.el).value, fim = $('#fim', m.el).value || ini;
@@ -173,8 +173,8 @@
   async function ajuda() {
     const { data, error } = await sb.from('necessidades').select('*').eq('cliente_id', me.id).order('created_at', { ascending: false });
     if (error) throw error;
-    const wa = DC.centralWa('Olá! Preciso de ajuda para encontrar um profissional no DebCare.');
-    app.innerHTML = `<div class="head"><div><h1>Pedir à central DebCare</h1><p>Não encontrou o profissional certo? Conte do que precisa: a central procura e indica alguém de confiança. Você confirma e paga pelo app, como sempre.</p></div>
+    const wa = DC.centralWa('Olá! Preciso de ajuda para encontrar um profissional na Saúde Pra Você.');
+    app.innerHTML = `<div class="head"><div><h1>Pedir à nossa central</h1><p>Não encontrou o profissional certo? Conte do que precisa: a central procura e indica alguém de confiança. Você confirma e paga pelo app, como sempre.</p></div>
       <div class="row">${wa ? `<a class="btn btn-ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp da central</a>` : ''}<button class="btn btn-coral" id="nova">Descrever minha necessidade</button></div></div>
       ${(data || []).length ? `<div class="card"><div class="list">${data.map((n) => `<div class="li"><span class="grow"><b>#${n.codigo} · ${esc(DC.espec(n.especialidade))}</b> para ${esc(n.paciente_nome || '—')}<br>
           <span class="small mute">${n.inicio ? DC.data(n.inicio) + (n.fim ? ' a ' + DC.data(n.fim) : '') + ' · ' : ''}${esc(n.cidade || '')}</span>${n.nota_central ? `<br><span class="small">Central: ${esc(n.nota_central)}</span>` : ''}</span>
@@ -216,8 +216,8 @@
       if (error) throw error;
       DC.api('/api/contratar', { acao: 'avisar_necessidade', id: data.id }).catch(() => {});
       m.close();
-      const wa = DC.centralWa(`Olá! Acabei de enviar o pedido #${data.codigo} no DebCare (${DC.espec(e)}).`);
-      DC.modal(`<h2>Pedido #${data.codigo} enviado à central</h2><p>A central DebCare já recebeu e vai procurar o profissional certo. Quando encontrar, o pedido aparece em <b>Minhas contratações</b> para você confirmar e pagar.</p>
+      const wa = DC.centralWa(`Olá! Acabei de enviar o pedido #${data.codigo} na Saúde Pra Você (${DC.espec(e)}).`);
+      DC.modal(`<h2>Pedido #${data.codigo} enviado à central</h2><p>A nossa central já recebeu e vai procurar o profissional certo. Quando encontrar, o pedido aparece em <b>Minhas contratações</b> para você confirmar e pagar.</p>
         <div class="acts"><button class="btn btn-ghost" data-close>OK</button>${wa ? `<a class="btn btn-green" href="${esc(wa)}" target="_blank" rel="noopener">Avisar no WhatsApp (mais rápido)</a>` : ''}</div>`, { semFoco: true });
       ajuda();
     });

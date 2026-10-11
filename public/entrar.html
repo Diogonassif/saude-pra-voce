@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Entrar · DebCare</title>
+<title>Entrar · Saúde Pra Você</title>
 <meta name="theme-color" content="#0E2B36">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -42,7 +42,7 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   </section>
 
   <section class="card col hide" id="papelBox">
-    <div><h2>Como você vai usar o DebCare?</h2><p class="mute small">Escolha uma vez. Para usar dos dois jeitos, crie outra conta com outro celular.</p></div>
+    <div><h2>Como você vai usar a Saúde Pra Você?</h2><p class="mute small">Escolha uma vez. Para usar dos dois jeitos, crie outra conta com outro celular.</p></div>
     <div class="papel">
       <button class="opt" type="button" data-p="cliente"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#17705F" stroke-width="2" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg><b>Preciso de um profissional</b><span>Para mim ou para alguém da família.</span></button>
       <button class="opt" type="button" data-p="pro"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#17705F" stroke-width="2" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6M12 15v4M10 17h4"/></svg><b>Sou profissional de saúde</b><span>Enfermagem, cuidador ou acompanhante.</span></button>
@@ -91,8 +91,8 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   $('#tel').oninput = (e) => { const d = e.target.value.replace(/\D/g, '').slice(0, 11); e.target.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d; };
 
   $('#esqueci').onclick = () => {
-    const link = DC.cfg && DC.cfg.central_whatsapp ? DC.wa(DC.cfg.central_whatsapp, 'Olá! Esqueci minha senha do DebCare. Meu celular é ' + $('#tel').value) : null;
-    DC.modal(`<h2>Esqueci a senha</h2><p>Fale com a central DebCare pelo WhatsApp. Conferimos que o celular é seu e mandamos uma senha nova.</p>
+    const link = DC.cfg && DC.cfg.central_whatsapp ? DC.wa(DC.cfg.central_whatsapp, 'Olá! Esqueci minha senha da Saúde Pra Você. Meu celular é ' + $('#tel').value) : null;
+    DC.modal(`<h2>Esqueci a senha</h2><p>Fale com a nossa central pelo WhatsApp. Conferimos que o celular é seu e mandamos uma senha nova.</p>
       <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button>${link ? `<a class="btn" href="${DC.esc(link)}" target="_blank" rel="noopener">Falar com a central</a>` : ''}</div>`);
   };
   // WhatsApp da central (lido sem login pela configuração pública não é possível; tenta e segue sem)

@@ -1,4 +1,4 @@
-/* DebCare · painel de gestão (central DebCare e Mind) */
+/* Saúde Pra Você · painel de gestão (central Saúde Pra Você e Mind) */
 (async function () {
   const { $, $$, sb, esc, brl } = DC;
   const me = await DC.boot('admin'); if (!me) return;
@@ -22,7 +22,7 @@
     const devido = Object.values(meses).reduce((s, x) => s + x.mind - x.repassado, 0);
     return { meses, R, devido: Math.round(devido * 100) / 100 };
   }
-  const alertaMind = (devido, link = true) => devido > 0.009 ? `<div class="banner alerta row" style="justify-content:space-between"><span><b>A DebCare deve ${brl(devido, 2)} à Mind</b> (10% dos atendimentos pagos). Registre o repasse quando pagar. O MindSaaS mostra o mesmo alerta.</span>${link ? '<a class="btn btn-sm" href="#financeiro">Ver repasses</a>' : ''}</div>` : '';
+  const alertaMind = (devido, link = true) => devido > 0.009 ? `<div class="banner alerta row" style="justify-content:space-between"><span><b>A Saúde Pra Você deve ${brl(devido, 2)} à Mind</b> (10% dos atendimentos pagos). Registre o repasse quando pagar. O MindSaaS mostra o mesmo alerta.</span>${link ? '<a class="btn btn-sm" href="#financeiro">Ver repasses</a>' : ''}</div>` : '';
 
   // ------------------------------------------------------------------ visão geral
   async function visao() {
@@ -41,8 +41,8 @@
       ${abertas ? `<a class="banner row" href="#central" style="text-decoration:none;justify-content:space-between"><span><b>${abertas} pedido(s) na central</b> esperando um profissional.</span><span>Abrir →</span></a>` : ''}
       <div class="grid2">
         <div class="card kpi"><span class="small mute">Pago pelos contratantes no mês</span><div class="v">${brl(m.total, 2)}</div><span class="small mute">${m.n} pagamento(s)</span></div>
-        <div class="card kpi"><span class="small mute">DebCare no mês (15%)</span><div class="v">${brl(m.debcare, 2)}</div><span class="small mute">entra pelo split do Mercado Pago</span></div>
-        <div class="card kpi"><span class="small mute">Mind no mês (10%)</span><div class="v">${brl(m.mind, 2)}</div><span class="small mute">a repassar pela DebCare</span></div>
+        <div class="card kpi"><span class="small mute">Saúde Pra Você no mês (15%)</span><div class="v">${brl(m.debcare, 2)}</div><span class="small mute">entra pelo split do Mercado Pago</span></div>
+        <div class="card kpi"><span class="small mute">Mind no mês (10%)</span><div class="v">${brl(m.mind, 2)}</div><span class="small mute">a repassar pela Saúde Pra Você</span></div>
         <div class="card kpi"><span class="small mute">Profissionais</span><div class="v">${pros.length}</div><span class="small mute">${pros.filter((p) => p.publicado).length} no catálogo · ${pros.filter((p) => p.publicado && !p.verificado).length} sem selo</span></div>
         <div class="card kpi"><span class="small mute">Contratantes</span><div class="v">${(cl.data || []).length}</div></div>
         <div class="card kpi"><span class="small mute">Pedidos na central</span><div class="v">${abertas}</div></div>
@@ -73,7 +73,7 @@
       <p class="small mute">${n.genero_pref ? 'Prefere profissional ' + (n.genero_pref === 'feminino' ? 'mulher' : 'homem') + ' · ' : ''}${n.orcamento ? 'Orçamento ' + brl(n.orcamento) : 'Sem orçamento informado'}</p>
       <label class="f">Nota da central (o contratante vê)<input class="in" data-nota="${n.id}" value="${esc(n.nota_central)}" maxlength="300" placeholder="ex.: Estamos falando com 2 cuidadoras da região"></label>
       <div class="row">${ativa(n) ? `<button class="btn btn-sm" data-ind="${n.id}">Indicar profissional</button>` : ''}
-        ${TEL[n.cliente_id] ? `<a class="btn btn-sm btn-ghost" href="${esc(DC.wa(TEL[n.cliente_id], 'Olá, ' + n.cliente_nome.split(' ')[0] + '! Aqui é da central DebCare, sobre o seu pedido #' + n.codigo + '.'))}" target="_blank" rel="noopener">WhatsApp do contratante</a>` : ''}
+        ${TEL[n.cliente_id] ? `<a class="btn btn-sm btn-ghost" href="${esc(DC.wa(TEL[n.cliente_id], 'Olá, ' + n.cliente_nome.split(' ')[0] + '! Aqui é da nossa central, sobre o seu pedido #' + n.codigo + '.'))}" target="_blank" rel="noopener">WhatsApp do contratante</a>` : ''}
         <select class="in" data-st="${n.id}" style="width:auto;min-height:36px">${Object.entries(DC.NEC).map(([k, v]) => `<option value="${k}" ${n.status === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></div></div>`;
     app.innerHTML = `<div class="head"><div><h1>Central</h1><p>Pedidos de quem não encontrou no catálogo. Indique um profissional: o pedido vai para ele aceitar e o contratante paga pelo app.</p></div></div>
       ${N.filter(ativa).map(card).join('') || '<div class="card empty"><b>Nenhum pedido esperando</b>Quando um contratante pedir ajuda, aparece aqui.</div>'}
@@ -108,7 +108,7 @@
       if (!p[campo]) { $('#prev', m.el).innerHTML = '<span class="small">Este profissional não tem valor para essa modalidade.</span>'; return; }
       const q = st.mod === 'hora' ? dias.length * (+$('#hd', m.el).value || 0) : dias.length;
       const pro = +p[campo] * q, cli = Math.round(+p[campo] * (1 + (tx.d + tx.m) / 100) * 100) / 100 * q;
-      $('#prev', m.el).innerHTML = `<div class="grid2 small"><div>Contratante paga<br><b>${brl(cli, 2)}</b></div><div>Profissional recebe<br><b>${brl(pro, 2)}</b></div><div>DebCare<br><b>${brl(pro * tx.d / 100, 2)}</b></div><div>Mind<br><b>${brl(cli - pro - pro * tx.d / 100, 2)}</b></div></div><span class="tiny mute">${dias.length} dia(s) · ${q} ${st.mod === 'hora' ? 'horas' : 'plantões'}</span>`;
+      $('#prev', m.el).innerHTML = `<div class="grid2 small"><div>Contratante paga<br><b>${brl(cli, 2)}</b></div><div>Profissional recebe<br><b>${brl(pro, 2)}</b></div><div>Saúde Pra Você<br><b>${brl(pro * tx.d / 100, 2)}</b></div><div>Mind<br><b>${brl(cli - pro - pro * tx.d / 100, 2)}</b></div></div><span class="tiny mute">${dias.length} dia(s) · ${q} ${st.mod === 'hora' ? 'horas' : 'plantões'}</span>`;
     };
     $$('#md button', m.el).forEach((b) => (b.onclick = () => { st.mod = b.dataset.m; $$('#md button', m.el).forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
     $$('#sem button', m.el).forEach((b) => (b.onclick = () => { const d = +b.dataset.d; st.semana = st.semana.includes(d) ? st.semana.filter((x) => x !== d) : [...st.semana, d]; b.classList.toggle('on'); draw(); }));
@@ -129,7 +129,7 @@
     let fs = '';
     app.innerHTML = `<div class="head"><div><h1>Contratações</h1><p>Todas as contratações com a divisão de valores. O contratante e o profissional não veem esta divisão.</p></div>
       <select class="in" id="fs" style="width:auto"><option value="">Todos os status</option>${Object.entries(DC.STATUS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select></div>
-      <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>#</th><th>Contratante → profissional</th><th>Período</th><th>Contratante paga</th><th>Profissional</th><th>DebCare</th><th>Mind</th><th>Status</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
+      <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>#</th><th>Contratante → profissional</th><th>Período</th><th>Contratante paga</th><th>Profissional</th><th>Saúde Pra Você</th><th>Mind</th><th>Status</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
     const draw = () => {
       $('#tb').innerHTML = (data || []).filter((c) => !fs || c.status === fs).map((c) => { const s = um(c.contratacao_split), v = um(c.contratacao_cliente); return `<tr>
         <td class="small">${c.codigo}</td><td><b>${esc(c.cliente_nome)}</b> → ${esc(c.pro_nome)}<br><span class="small mute">${esc(DC.espec(c.especialidade))} · ${esc(DC.MODAL[c.modalidade].nome)}${c.origem === 'central' ? ' · central' : ''}</span></td>
@@ -147,7 +147,7 @@
     if (error) throw error;
     const PV = Object.fromEntries((pv.data || []).map((x) => [x.user_id, x]));
     const TEL = Object.fromEntries((pf.data || []).map((x) => [x.id, x.telefone]));
-    app.innerHTML = `<div class="head"><div><h1>Profissionais</h1><p>Confira documentos e o COREN no site do conselho antes de dar o selo DebCare.</p></div><input class="in" id="q" placeholder="Buscar" style="max-width:280px" aria-label="Buscar profissionais"></div>
+    app.innerHTML = `<div class="head"><div><h1>Profissionais</h1><p>Confira documentos e o COREN no site do conselho antes de dar o selo verificado.</p></div><input class="in" id="q" placeholder="Buscar" style="max-width:280px" aria-label="Buscar profissionais"></div>
       <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Profissional</th><th>Valores (dele)</th><th>COREN</th><th>Documentos</th><th>Catálogo</th><th>Selo</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
     const docs = (u) => { const x = PV[u] || {}; return [['doc_identidade', 'Identidade'], ['doc_coren', 'COREN'], ['doc_antecedentes', 'Antecedentes']].map(([k, n]) => x[k] ? `<button class="link small" data-doc="${esc(x[k])}">${n}</button>` : `<span class="tiny mute">${n} —</span>`).join('<br>') + (x.cpf ? `<br><span class="tiny">CPF ${esc(x.cpf)}</span>` : ''); };
     const draw = () => {
@@ -159,7 +159,7 @@
         <td><label class="check"><input type="checkbox" data-pub="${p.user_id}" ${p.publicado ? 'checked' : ''}>Publicado</label></td>
         <td><label class="check"><input type="checkbox" data-ver="${p.user_id}" ${p.verificado ? 'checked' : ''}>Selo</label></td>
         <td><button class="btn btn-sm btn-ghost" data-senha="${p.user_id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum profissional.</td></tr>';
-      $$('[data-ver]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ verificado: c.checked }).eq('user_id', c.dataset.ver); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'Selo DebCare concedido' : 'Selo removido'); }));
+      $$('[data-ver]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ verificado: c.checked }).eq('user_id', c.dataset.ver); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'Selo verificado concedido' : 'Selo removido'); }));
       $$('[data-pub]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ publicado: c.checked }).eq('user_id', c.dataset.pub); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'No catálogo' : 'Fora do catálogo'); }));
       $$('[data-doc]').forEach((b) => (b.onclick = async () => { const { data: u, error: e } = await sb.storage.from('docs').createSignedUrl(b.dataset.doc, 300); if (e) return DC.erro(e); window.open(u.signedUrl, '_blank', 'noopener'); }));
       $$('[data-senha]').forEach((b) => (b.onclick = () => novaSenha(b, b.dataset.senha)));
@@ -171,7 +171,7 @@
     DC.busy(btn, async () => {
       const r = await DC.api('/api/senha', { user_id: userId });
       DC.modal(`<h2>Senha nova de ${esc(r.nome.split(' ')[0])}</h2><p class="price">${esc(r.senha)}</p><p class="small mute">Envie pelo WhatsApp e peça para trocar depois em Conta.</p>
-        <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button><a class="btn btn-green" target="_blank" rel="noopener" href="${esc(DC.wa(r.telefone, `Olá, ${r.nome.split(' ')[0]}! Sua senha nova do DebCare é ${r.senha}. Entre com seu celular e essa senha e troque por uma sua.`))}">Enviar no WhatsApp</a></div>`, { semFoco: true });
+        <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button><a class="btn btn-green" target="_blank" rel="noopener" href="${esc(DC.wa(r.telefone, `Olá, ${r.nome.split(' ')[0]}! Sua senha nova da Saúde Pra Você é ${r.senha}. Entre com seu celular e essa senha e troque por uma sua.`))}">Enviar no WhatsApp</a></div>`, { semFoco: true });
     });
   }
 
@@ -191,10 +191,10 @@
   async function financeiro() {
     const { meses, R, devido } = await dinheiro();
     const K = Object.keys(meses).sort().reverse();
-    app.innerHTML = `<div class="head"><div><h1>Financeiro</h1><p>O contratante paga ao profissional pelo Mercado Pago; 25% (DebCare 15% + Mind 10%) caem na conta da DebCare pelo split. A DebCare repassa os 10% da Mind.</p></div>
+    app.innerHTML = `<div class="head"><div><h1>Financeiro</h1><p>O contratante paga ao profissional pelo Mercado Pago; 25% (Saúde Pra Você 15% + Mind 10%) caem na conta da Saúde Pra Você pelo split. A Saúde Pra Você repassa os 10% da Mind.</p></div>
       <button class="btn" id="rep">Registrar repasse à Mind</button></div>
       ${alertaMind(devido, false) || '<div class="banner ok">Nada a repassar à Mind agora.</div>'}
-      <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Mês</th><th>Pagamentos</th><th>Contratantes pagaram</th><th>Profissionais</th><th>DebCare</th><th>Mind (devido)</th><th>Repassado</th><th>A repassar</th></tr></thead><tbody>
+      <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Mês</th><th>Pagamentos</th><th>Contratantes pagaram</th><th>Profissionais</th><th>Saúde Pra Você</th><th>Mind (devido)</th><th>Repassado</th><th>A repassar</th></tr></thead><tbody>
         ${K.map((k) => { const x = meses[k], f = x.mind - x.repassado; return `<tr><td>${mesNome(k)}</td><td>${x.n}</td><td>${brl(x.total, 2)}</td><td>${brl(x.pro, 2)}</td><td>${brl(x.debcare, 2)}</td><td>${brl(x.mind, 2)}</td><td>${brl(x.repassado, 2)}</td><td>${f > 0.009 ? `<b style="color:var(--red)">${brl(f, 2)}</b>` : '<span class="tag t-green">EM DIA</span>'}</td></tr>`; }).join('') || '<tr><td colspan="8" class="mute">Nenhum pagamento aprovado ainda.</td></tr>'}</tbody></table></div></div>
       <div class="card col"><h2>Repasses feitos à Mind</h2>${R.length ? `<div class="list">${R.map((r) => `<div class="li small"><span class="grow"><b>${brl(r.valor, 2)}</b> · referência ${esc(r.referencia.split('-').reverse().join('/'))}${r.nota ? ' · ' + esc(r.nota) : ''}</span><span class="mute">${DC.data(r.pago_em)}</span></div>`).join('')}</div>` : '<p class="small mute">Nenhum repasse registrado.</p>'}</div>`;
     $('#rep').onclick = () => {
@@ -221,7 +221,7 @@
     const C = Object.fromEntries((data || []).map((x) => [x.key, x.value]));
     app.innerHTML = `<div class="head"><div><h1>Taxas e central</h1><p>As taxas são somadas por cima do valor do profissional e valem para os próximos pedidos.</p></div></div>
       <div class="grid2" style="max-width:900px">
-        <div class="card col"><h2>DebCare</h2><label class="f">Taxa DebCare (%)<input class="in" id="td" type="number" min="0" max="100" step="0.5" value="${+C.taxa_debcare}"></label></div>
+        <div class="card col"><h2>Saúde Pra Você</h2><label class="f">Taxa Saúde Pra Você (%)<input class="in" id="td" type="number" min="0" max="100" step="0.5" value="${+C.taxa_debcare}"></label></div>
         <div class="card col"><h2>Mind (gestora da plataforma)</h2><label class="f">Taxa Mind (%)<input class="in" id="tm" type="number" min="0" max="100" step="0.5" value="${+C.taxa_mind}"></label></div>
         <div class="card col"><h2>Exemplo</h2><p class="small" id="ex"></p></div>
         <div class="card col"><h2>Central</h2>
@@ -230,7 +230,7 @@
         <div class="card col"><h2>Equipe com acesso ao painel</h2><p class="small mute">Celulares com DDD, um por linha. Viram administradores ao criar a conta.</p><textarea class="in" id="adm">${esc((C.admins || []).map(DC.telBonito).join('\n'))}</textarea></div>
       </div>
       <button class="btn" id="sv" style="align-self:flex-start">Salvar</button>`;
-    const ex = () => { const d = +$('#td').value || 0, m = +$('#tm').value || 0; $('#ex').innerHTML = `Profissional pede <b>R$ 100</b> → contratante vê <b>${brl(100 * (1 + (d + m) / 100), 2)}</b> · DebCare ${brl(d, 2)} · Mind ${brl(m, 2)}`; };
+    const ex = () => { const d = +$('#td').value || 0, m = +$('#tm').value || 0; $('#ex').innerHTML = `Profissional pede <b>R$ 100</b> → contratante vê <b>${brl(100 * (1 + (d + m) / 100), 2)}</b> · Saúde Pra Você ${brl(d, 2)} · Mind ${brl(m, 2)}`; };
     $('#td').oninput = ex; $('#tm').oninput = ex; ex();
     $('#sv').onclick = () => DC.busy($('#sv'), async () => {
       const adm = $('#adm').value.split(/\n|,|;/).map((x) => DC.tel(x)).filter(Boolean);

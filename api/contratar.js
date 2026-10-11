@@ -1,5 +1,5 @@
 // Contratações: criar pelo catálogo, indicação da central, aceitar, recusar, cancelar, concluir e avisos.
-// Toda conta de dinheiro é feita aqui (valor do profissional + 15% DebCare + 10% Mind, somados por cima).
+// Toda conta de dinheiro é feita aqui (valor do profissional + 15% Saúde Pra Você + 10% Mind, somados por cima).
 import { send, readJson, who, admin, one, isUuid, money, brl, fail, handler, appUrl, sendEmail, shell, escH,
   emailDe, emailCentral, MODAL, taxas, calcular, diasDoPeriodo } from './_lib.js';
 
@@ -96,7 +96,7 @@ export default handler(async (req, res) => {
       endereco: n.endereco, cidade: n.cidade, inicio: n.inicio, fim: n.fim, horas_dia: n.horas_dia,
     }, b), n.cliente_id, 'central', n.id);
     await admin(`necessidades?id=eq.${n.id}`, { method: 'PATCH', body: { status: 'em_busca', updated_at: agora() } });
-    sendEmail({ to: await emailDe(c.pro_id), subject: `A central DebCare indicou você: ${resumo(c)}`,
+    sendEmail({ to: await emailDe(c.pro_id), subject: `A nossa central indicou você: ${resumo(c)}`,
       html: shell('Novo pedido pela central', `<p>${escH(resumo(c))} · você recebe <b>${brl(v.pro)}</b>.</p>`, { url: url + '/pro.html#pedidos', label: 'Ver e responder' }) });
     return send(res, 200, { ok: true, id: c.id, total_cliente: v.cliente, total_pro: v.pro });
   }
@@ -131,7 +131,7 @@ export default handler(async (req, res) => {
     if (!['solicitado', 'aceito'].includes(c.status)) throw fail(409, 'Este pedido não pode mais ser recusado');
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'recusado', motivo: txt(b.motivo, 300), updated_at: agora() } });
     if (c.necessidade_id) await admin(`necessidades?id=eq.${c.necessidade_id}&status=neq.cancelada`, { method: 'PATCH', body: { status: 'aberta', updated_at: agora() } });
-    sendEmail({ to: await emailDe(c.cliente_id), subject: 'Pedido não aceito · DebCare',
+    sendEmail({ to: await emailDe(c.cliente_id), subject: 'Pedido não aceito · Saúde Pra Você',
       html: shell('O profissional não pode atender', `<p>${escH(resumo(c))}. Escolha outro profissional no catálogo ou peça ajuda à central.</p>`, { url: url + '/cliente.html#catalogo', label: 'Ver catálogo' }) });
     return send(res, 200, { ok: true });
   }
@@ -143,7 +143,7 @@ export default handler(async (req, res) => {
     if (!pode.includes(c.status)) throw fail(409, c.status === 'confirmado' ? 'Atendimento já pago: fale com a central para cancelar e reembolsar' : 'Esta contratação não pode ser cancelada');
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'cancelado', motivo: txt(b.motivo, 300), updated_at: agora() } });
     if (c.status === 'confirmado') await admin(`agenda?pro_id=eq.${c.pro_id}&dia=gte.${c.inicio}&dia=lte.${c.fim}&status=eq.alocado`, { method: 'DELETE' });
-    sendEmail({ to: await emailDe(c.pro_id), subject: 'Pedido cancelado · DebCare', html: shell('Pedido cancelado', `<p>${escH(resumo(c))} foi cancelado.</p>`) });
+    sendEmail({ to: await emailDe(c.pro_id), subject: 'Pedido cancelado · Saúde Pra Você', html: shell('Pedido cancelado', `<p>${escH(resumo(c))} foi cancelado.</p>`) });
     return send(res, 200, { ok: true });
   }
 

@@ -1,4 +1,4 @@
-// Conecta a conta Mercado Pago do profissional à aplicação de marketplace da DebCare (OAuth), para receber com split.
+// Conecta a conta Mercado Pago do profissional à aplicação de marketplace da Saúde Pra Você (OAuth), para receber com split.
 // POST (logado) → devolve a URL de autorização. GET com ?code&state → troca o código e guarda o token.
 import { send, who, admin, env, sign, unsign, fail, handler, appUrl } from './_lib.js';
 
@@ -8,7 +8,7 @@ export default handler(async (req, res) => {
   if (req.method === 'POST') {
     const me = await who(req);
     if (me.role !== 'pro' && !me.isAdmin) throw fail(403, 'Só profissionais conectam conta de recebimento');
-    if (!env('MP_CLIENT_ID') || !env('MP_CLIENT_SECRET')) throw fail(503, 'Recebimentos ainda não liberados. A central DebCare avisa você.');
+    if (!env('MP_CLIENT_ID') || !env('MP_CLIENT_SECRET')) throw fail(503, 'Recebimentos ainda não liberados. A nossa central avisa você.');
     const state = sign(me.id + ':' + Date.now());
     const u = new URL('https://auth.mercadopago.com.br/authorization');
     u.searchParams.set('client_id', env('MP_CLIENT_ID'));

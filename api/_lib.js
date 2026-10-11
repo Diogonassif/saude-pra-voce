@@ -1,4 +1,4 @@
-// DebCare · utilidades do servidor (Vercel Functions). Variáveis de ambiente: veja README.md
+// Saúde Pra Você · utilidades do servidor (Vercel Functions). Variáveis de ambiente: veja README.md
 import crypto from 'node:crypto';
 export const env = (k) => process.env[k] || '';
 const SB = () => env('SUPABASE_URL');
@@ -65,17 +65,17 @@ export const unsign = (v) => { const i = String(v || '').lastIndexOf('.'); if (i
 // e-mails (Resend), opcionais: só para quem cadastrou e-mail. Sem chave configurada, só registra e segue.
 export const escH = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const shell = (title, body, cta) => `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0E2B36">
-<div style="background:#0E2B36;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0;font-weight:bold;font-size:18px"><span style="color:#2BB59A">&#10084;</span> Deb<span style="color:#6FE0C6">Care</span></div>
+<div style="background:#0E2B36;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0;font-weight:bold;font-size:18px"><span style="color:#2BB59A">&#10084;</span> Saúde <span style="color:#6FE0C6">Pra Você</span></div>
 <div style="border:1px solid #DCE6E8;border-top:0;padding:20px;border-radius:0 0 12px 12px"><h2 style="margin:0 0 12px;font-size:18px">${escH(title)}</h2>${body}
 ${cta ? `<p style="margin:20px 0 0"><a href="${escH(cta.url)}" style="background:#17705F;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold">${escH(cta.label)}</a></p>` : ''}</div>
-<p style="font-size:12px;color:#5A6B72">DebCare · tecnologia MindFy Tech</p></div>`;
+<p style="font-size:12px;color:#5A6B72">Saúde Pra Você · tecnologia MindFy Tech</p></div>`;
 export async function sendEmail({ to, subject, html }) {
   const key = env('RESEND_API_KEY');
   const list = [].concat(to).filter(Boolean);
   if (!key || !list.length) { console.log('[email não enviado]', subject, list.join(',')); return null; }
   try {
     const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: env('EMAIL_FROM') || 'DebCare <nao-responda@mindfytech.com>', to: list, subject, html }) });
+      body: JSON.stringify({ from: env('EMAIL_FROM') || 'Saúde Pra Você <nao-responda@mindfytech.com>', to: list, subject, html }) });
     if (!r.ok) console.log('[email falhou]', r.status, await r.text());
   } catch (e) { console.log('[email erro]', e.message); }
   return null;
@@ -83,7 +83,7 @@ export async function sendEmail({ to, subject, html }) {
 export async function emailDe(userId) { const p = await one(`profiles?id=eq.${userId}&select=email`); return p ? p.email : null; }
 export async function emailCentral() { const v = await config('central_email', ''); return typeof v === 'string' && v.includes('@') ? v : null; }
 
-// ---------------------------------------------------------------- regras de preço do DebCare
+// ---------------------------------------------------------------- regras de preço da Saúde Pra Você
 export const MODAL = {
   hora: { campo: 'valor_hora', nome: 'por hora', un: '/h' },
   plantao12: { campo: 'valor_12h', nome: 'plantão de 12h', un: ' por plantão de 12h' },

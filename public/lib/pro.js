@@ -1,4 +1,4 @@
-/* DebCare · app do profissional de saúde */
+/* Saúde Pra Você · app do profissional de saúde */
 (async function () {
   const { $, $$, sb, esc, brl } = DC;
   const me = await DC.boot('pro'); if (!me) return;
@@ -24,7 +24,7 @@
     const L = [];
     if (!pro.especialidade || !pro.titulo || !pro.valor_hora) L.push(['#perfil', 'Complete seu perfil: especialidade, título e valor por hora']);
     if (precisaCoren() && !pro.coren) L.push(['#perfil', 'Informe seu COREN']);
-    if (!priv.doc_identidade) L.push(['#perfil', 'Envie seus documentos para ganhar o selo DebCare']);
+    if (!priv.doc_identidade) L.push(['#perfil', 'Envie seus documentos para ganhar o selo verificado']);
     if (!me.mpConectado) L.push(['#recebimentos', 'Conecte sua conta Mercado Pago para receber']);
     if (!pro.publicado) L.push(['#perfil', 'Publique seu perfil para aparecer no catálogo']);
     return L;
@@ -57,7 +57,7 @@
         </div>
         <div class="side">
           <div class="card dark col"><span class="small mute">Recebido neste mês</span><div class="price">${brl(ganhoMes, 2)}</div>
-            <div class="row">${pro.publicado ? '<span class="tag t-green">PERFIL NO CATÁLOGO</span>' : '<span class="tag t-amber">PERFIL NÃO PUBLICADO</span>'}${pro.verificado ? '<span class="selo">✓ Selo DebCare</span>' : ''}</div></div>
+            <div class="row">${pro.publicado ? '<span class="tag t-green">PERFIL NO CATÁLOGO</span>' : '<span class="tag t-amber">PERFIL NÃO PUBLICADO</span>'}${pro.verificado ? '<span class="selo">✓ Selo verificado</span>' : ''}</div></div>
           <div class="card col"><h2>Seus valores</h2>
             <div class="list small">${Object.entries({ valor_hora: 'Por hora', valor_12h: 'Plantão 12h', valor_24h: 'Plantão 24h' }).map(([k, n]) => `<div class="li"><span class="grow">${n}</span><b>${pro[k] ? brl(pro[k], 2) : '—'}</b></div>`).join('')}</div>
             <p class="small mute">Você define o seu valor e recebe ele inteiro. A taxa da plataforma é somada por cima no preço do contratante.</p><a class="btn btn-ghost btn-sm" href="#perfil">Ajustar valores</a></div>
@@ -123,7 +123,7 @@
     const hab = new Set(pro.habilidades || []);
     app.innerHTML = `
       <div class="head"><div><h1>Perfil e valores</h1><p>É o que as famílias veem no catálogo. Você define quanto quer ganhar.</p></div>
-        <div class="row">${pro.publicado ? '<span class="tag t-green">NO CATÁLOGO</span>' : '<span class="tag t-amber">NÃO PUBLICADO</span>'}${pro.verificado ? '<span class="selo">✓ Selo DebCare</span>' : ''}</div></div>
+        <div class="row">${pro.publicado ? '<span class="tag t-green">NO CATÁLOGO</span>' : '<span class="tag t-amber">NÃO PUBLICADO</span>'}${pro.verificado ? '<span class="selo">✓ Selo verificado</span>' : ''}</div></div>
       <div class="split"><div class="main"><div class="card col">
         <label class="f">Nome completo<input class="in" id="pn" value="${esc(pro.nome)}" maxlength="80"></label>
         <div class="col" style="gap:6px"><b class="small">Você é</b><div class="grid2" id="es">${Object.entries(DC.ESPEC).map(([k, v]) => `<button type="button" class="opt ${pro.especialidade === k ? 'on' : ''}" data-e="${k}"><b>${v.nome}</b><span>${v.dica}</span></button>`).join('')}</div></div>
@@ -145,7 +145,7 @@
           <label class="f">Por hora (obrigatório)<input class="in" type="number" id="vh" min="1" step="0.01" value="${pro.valor_hora ?? ''}"></label>
           <label class="f">Plantão de 12h (opcional)<input class="in" type="number" id="v12" min="1" step="0.01" value="${pro.valor_12h ?? ''}"></label>
           <label class="f">Plantão de 24h (opcional)<input class="in" type="number" id="v24" min="1" step="0.01" value="${pro.valor_24h ?? ''}"></label></div>
-        <div class="card col"><h2>Documentos</h2><p class="small mute">Só você e a central DebCare veem. Com eles conferidos, você ganha o selo DebCare e aparece primeiro.</p>
+        <div class="card col"><h2>Documentos</h2><p class="small mute">Só você e a nossa central veem. Com eles conferidos, você ganha o selo verificado e aparece primeiro.</p>
           <label class="f">CPF<input class="in" id="cpf" inputmode="numeric" value="${esc(priv.cpf || '')}"></label>
           ${[['doc_identidade', 'Documento com foto (RG ou CNH)'], ['doc_coren', 'Carteira do COREN'], ['doc_antecedentes', 'Certidão de antecedentes criminais']].map(([k, n]) => `<div class="row"><span class="grow small">${n}<br>${priv[k] ? '<span class="tag t-green">ENVIADO</span>' : '<span class="tag t-gray">PENDENTE</span>'}</span><label class="btn btn-sm btn-ghost" for="f_${k}">${priv[k] ? 'Trocar' : 'Enviar'}</label><input type="file" id="f_${k}" data-doc="${k}" accept="application/pdf,image/*" class="sr"></div>`).join('')}
           <button class="btn btn-ghost btn-sm" id="salvaCpf">Salvar CPF</button></div>

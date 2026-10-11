@@ -1,4 +1,4 @@
-/* DebCare · ficha da contratação (usada pelo contratante, pelo profissional e pela central) */
+/* Saúde Pra Você · ficha da contratação (usada pelo contratante, pelo profissional e pela central) */
 (function () {
   const { $, $$, sb, esc, brl } = DC;
 
@@ -39,7 +39,7 @@
       if (souAdm && v && sp) valores = `<div class="grid2">
           <div class="card flat"><span class="small mute">Contratante paga</span><div class="price">${brl(v.total, 2)}</div><span class="tiny mute">${esc(DC.qtdTxt(c))}</span></div>
           <div class="card flat"><span class="small mute">Profissional recebe</span><div class="price">${brl(sp.pro, 2)}</div></div>
-          <div class="card flat"><span class="small mute">DebCare (${+sp.taxa_debcare_pct}%)</span><div class="price">${brl(sp.debcare, 2)}</div></div>
+          <div class="card flat"><span class="small mute">Saúde Pra Você (${+sp.taxa_debcare_pct}%)</span><div class="price">${brl(sp.debcare, 2)}</div></div>
           <div class="card flat"><span class="small mute">Mind (${+sp.taxa_mind_pct}%)</span><div class="price">${brl(sp.mind, 2)}</div></div></div>`;
 
       let aviso = '';
@@ -48,7 +48,7 @@
       if (souPro && c.status === 'solicitado') aviso = `<div class="banner">Confira os cuidados, as datas e o local. Ao aceitar, o contratante paga pelo app e os dias entram na sua agenda.</div>`;
       if (souPro && c.status === 'aceito') aviso = '<div class="banner info">Você aceitou. Aguardando o pagamento do contratante.</div>';
       if (c.status === 'recusado' || c.status === 'cancelado') aviso = `<div class="banner">${c.status === 'recusado' ? 'O profissional não pôde atender.' : 'Cancelado.'}${c.motivo ? ' Motivo: ' + esc(c.motivo) : ''}</div>`;
-      if (pago && contato) aviso += `<div class="banner ok row" style="justify-content:space-between"><span>${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b> · ${esc(DC.telBonito(contato))}</span><a class="btn btn-sm btn-green" href="${esc(DC.wa(contato, 'Olá! Sou ' + DC.me.nome.split(' ')[0] + ', do atendimento DebCare #' + c.codigo + '.'))}" target="_blank" rel="noopener">WhatsApp</a></div>`;
+      if (pago && contato) aviso += `<div class="banner ok row" style="justify-content:space-between"><span>${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b> · ${esc(DC.telBonito(contato))}</span><a class="btn btn-sm btn-green" href="${esc(DC.wa(contato, 'Olá! Sou ' + DC.me.nome.split(' ')[0] + ', do atendimento Saúde Pra Você #' + c.codigo + '.'))}" target="_blank" rel="noopener">WhatsApp</a></div>`;
 
       const fimPassou = c.fim <= DC.hoje();
       const avaliar = souCli && c.status === 'concluido' && !av
