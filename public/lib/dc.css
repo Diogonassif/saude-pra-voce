@@ -222,3 +222,11 @@ button.linha:hover { background: #F3F8F8; }
 .pin { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: #E0663B; display: inline-block; }
 
 .cal { max-width: 560px; width: 100%; align-self: center; }
+
+details.extrato > summary { cursor: pointer; list-style: none; }
+details.extrato > summary::-webkit-details-marker { display: none; }
+details.extrato .abre { margin-left: 8px; font-weight: 700; text-decoration: underline; white-space: nowrap; }
+details.extrato .a2, details.extrato[open] .a1 { display: none; }
+details.extrato[open] .a2 { display: inline; }
+.ext-mes { background: #fff; border-radius: 10px; padding: 12px; margin-top: 10px; color: var(--navy); display: flex; flex-direction: column; gap: 8px; }
+.ext-mes tr.rep td { background: #F1FAF6; }
