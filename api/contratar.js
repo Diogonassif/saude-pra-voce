@@ -18,8 +18,8 @@ async function carregar(id) {
   return c;
 }
 
-// monta e grava uma contratação (usado pelo contratante no catálogo e pela central ao indicar)
-async function criarContratacao(b, clienteId, origem, necessidadeId) {
+// valida e monta os dados de um pedido (usado ao criar e ao editar)
+async function planejarPedido(b, clienteId) {
   if (!isUuid(b.pro_id)) throw fail(400, 'Escolha um profissional');
   const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,coren_status,valor_hora,valor_12h,valor_24h`);
   if (!pro || !pro.publicado) throw fail(404, 'Este profissional não está disponível agora');
@@ -48,19 +48,24 @@ async function criarContratacao(b, clienteId, origem, necessidadeId) {
   const choque = (ag || []).find((a) => dias.includes(a.dia));
   if (choque) throw fail(409, `${pro.nome.split(' ')[0]} não está disponível em ${choque.dia.split('-').reverse().join('/')}. Escolha outras datas ou outro profissional.`);
 
-  const cli = await one(`profiles?id=eq.${clienteId}&select=nome`);
   const idade = b.paciente_idade === '' || b.paciente_idade == null ? null : Math.round(+b.paciente_idade);
   const row = {
-    cliente_id: clienteId, pro_id: pro.user_id, cliente_nome: (cli && cli.nome) || '', pro_nome: pro.nome,
-    necessidade_id: necessidadeId || null, origem, especialidade: pro.especialidade, modalidade,
+    pro_id: pro.user_id, pro_nome: pro.nome, especialidade: pro.especialidade, modalidade,
     inicio, fim, horario: horaOk(b.horario), horas_dia: horasDia, dias_semana: semana, dias: dias.length, quantidade,
     local_tipo: LOCAIS.includes(b.local_tipo) ? b.local_tipo : 'residencia', endereco: txt(b.endereco, 300), cidade: txt(b.cidade, 80) || null,
     paciente_nome: txt(b.paciente_nome, 120), paciente_idade: idade >= 0 && idade <= 120 ? idade : null,
-    cuidados: txt(b.cuidados, 3000), notas: txt(b.notas, 2000), status: 'solicitado',
+    cuidados: txt(b.cuidados, 3000), notas: txt(b.notas, 2000),
   };
-  const [c] = await admin('contratacoes', { method: 'POST', prefer: 'return=representation', body: row });
   const t = await taxas();
-  const v = calcular(base, quantidade, t);
+  return { row, t, v: calcular(base, quantidade, t) };
+}
+
+// monta e grava uma contratação (usado pelo contratante no catálogo e pela central ao indicar)
+async function criarContratacao(b, clienteId, origem, necessidadeId) {
+  const { row: r0, t, v } = await planejarPedido(b, clienteId);
+  const cli = await one(`profiles?id=eq.${clienteId}&select=nome`);
+  const row = Object.assign(r0, { cliente_id: clienteId, cliente_nome: (cli && cli.nome) || '', necessidade_id: necessidadeId || null, origem, status: 'solicitado' });
+  const [c] = await admin('contratacoes', { method: 'POST', prefer: 'return=representation', body: row });
   await Promise.all([
     admin('contratacao_pro', { method: 'POST', body: { contratacao_id: c.id, valor_unit: v.unitPro, total: v.pro } }),
     admin('contratacao_cliente', { method: 'POST', body: { contratacao_id: c.id, valor_unit: v.unitCli, total: v.cliente } }),
@@ -177,6 +182,29 @@ export default handler(async (req, res) => {
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'concluido', concluido_em: agora(), updated_at: agora() } });
     if (!ehCli) sendEmail({ to: await emailDe(c.cliente_id), subject: 'Atendimento concluído · avalie', html: shell('Atendimento concluído', `<p>Conte como foi com ${escH(c.pro_nome.split(' ')[0])}. Sua avaliação ajuda outras famílias.</p>`, { url: url + '/cliente.html#contratacoes', label: 'Avaliar' }) });
     return send(res, 200, { ok: true });
+  }
+
+  // ------------------------------------------------------------ editar o pedido (contratante, antes de pagar)
+  if (b.acao === 'editar') {
+    if (!(ehCli || me.isAdmin)) throw fail(403, 'Só o contratante edita o pedido');
+    if (!['solicitado', 'aceito'].includes(c.status)) throw fail(409, 'Depois do pagamento, fale com a central para mudar o atendimento');
+    const { row, t, v } = await planejarPedido(Object.assign({}, b, { pro_id: c.pro_id }), c.cliente_id);
+    const mudou = [...['modalidade', 'inicio', 'fim'].filter((k) => String(row[k]) !== String(c[k])), ...['horas_dia', 'quantidade'].filter((k) => +row[k] !== +c[k]),
+      ...((row.horario || '') !== (c.horario ? c.horario.slice(0, 5) : '') ? ['horario'] : []),
+      ...(JSON.stringify([...row.dias_semana].sort()) !== JSON.stringify([...(c.dias_semana || [])].sort()) ? ['dias_semana'] : [])];
+    const mudouAgenda = mudou.length > 0;
+    const volta = mudouAgenda && c.status === 'aceito';
+    delete row.pro_id; delete row.pro_nome; delete row.especialidade;
+    await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: Object.assign(row, { proposta: null, updated_at: agora() }, volta ? { status: 'solicitado', aceito_em: null } : {}) });
+    await Promise.all([
+      admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: v.unitPro, total: v.pro } }),
+      admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: v.unitCli, total: v.cliente } }),
+      admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: v.pro, debcare: v.debcare, mind: v.mind } }),
+    ]);
+    sendEmail({ to: await emailDe(c.pro_id), subject: `Pedido #${c.codigo} alterado pelo contratante`,
+      html: shell('Pedido alterado', `<p>${escH(c.cliente_nome)} alterou o pedido #${c.codigo}${mudouAgenda ? ' (datas ou horários)' : ''}. Você recebe <b>${brl(v.pro)}</b>.${volta ? ' Confira e aceite de novo.' : ''}</p>`,
+        { url: url + '/pro.html#pedidos', label: 'Ver pedido' }) });
+    return send(res, 200, { ok: true, status: volta ? 'solicitado' : c.status, total_cliente: v.cliente, voltou: volta, mudou });
   }
 
   // ------------------------------------------------------------ sugerir outra data (profissional ou central)

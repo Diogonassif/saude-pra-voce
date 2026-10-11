@@ -288,7 +288,7 @@
         <div class="card col"><h2>Atendimentos pagos</h2>${L.length ? `<div class="list">${L.map(linha).join('')}</div>` : '<p class="small mute">Nenhum pagamento ainda.</p>'}</div>
       </div><div class="side">
         <div class="card col"><h2>Conta de recebimento</h2>
-          ${me.mpConectado ? '<div class="banner ok">Conta Mercado Pago conectada. Os pagamentos caem nela e você saca para o seu banco quando quiser.</div>'
+          ${me.mpConectado ? '<div class="banner ok">Conta Mercado Pago conectada. Os pagamentos caem nela e você saca para o seu banco quando quiser.</div><div id="mpInfo" class="small mute">Carregando os dados da conta…</div><div class="row"><button class="btn btn-sm btn-ghost" id="mp">Trocar de conta</button><button class="btn btn-sm btn-ghost" id="mpSair" style="color:var(--red)">Desconectar</button></div><p class="tiny mute">Para trocar, saia da conta atual no site do Mercado Pago antes, ou entre com a outra conta quando ele pedir.</p>'
             : '<p class="small">Conecte uma conta Mercado Pago (é grátis) para receber os pagamentos dos atendimentos. Do Mercado Pago você transfere para o seu banco.</p><button class="btn btn-dark" id="mp">Conectar Mercado Pago</button>'}</div>
         <div class="card col"><h2>Por mês</h2>${Object.keys(porMes).length ? `<div class="list small">${Object.entries(porMes).map(([k, v]) => `<div class="li"><span class="grow">${k.split('-').reverse().join('/')}</span><b>${brl(v, 2)}</b></div>`).join('')}</div>` : '<p class="small mute">—</p>'}</div>
         <div class="card col"><h2>Acesso</h2>
@@ -303,6 +303,19 @@
       if (e) throw (e.code === '23505' ? new Error('Esse e-mail já está em outra conta') : e);
       me.email = em || null; DC.toast(em ? 'Pronto! Agora você também entra com ' + em : 'E-mail removido');
     });
+    if (me.mpConectado) {
+      const tk = (await DC.session()).access_token;
+      fetch('/api/mp-conectar', { method: 'POST', headers: { authorization: 'Bearer ' + tk, 'x-acao': 'info' } }).then((r) => r.json()).then((x) => {
+        const el = $('#mpInfo'); if (!el) return;
+        el.innerHTML = x.conectado ? `<b>${esc(x.nome || 'Conta Mercado Pago')}</b>${x.email ? ' · ' + esc(x.email) : ''}<br>Número da conta: ${esc(x.conta || '—')} · conectada em ${DC.data(x.desde)}` : 'Conta não encontrada.';
+      }).catch(() => { const el = $('#mpInfo'); if (el) el.textContent = ''; });
+      $('#mpSair').onclick = () => DC.busy($('#mpSair'), async () => {
+        if (!(await DC.confirm('Desconectar a conta Mercado Pago? Sem conta conectada, as famílias não conseguem pagar seus atendimentos.', 'Desconectar'))) return;
+        const r = await fetch('/api/mp-conectar', { method: 'POST', headers: { authorization: 'Bearer ' + (await DC.session()).access_token, 'x-acao': 'desconectar' } });
+        const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Não deu para desconectar');
+        me.mpConectado = false; DC.toast('Conta desconectada'); recebimentos();
+      });
+    }
     if ($('#mp')) $('#mp').onclick = () => DC.busy($('#mp'), async () => {
       try { const r = await DC.api('/api/mp-conectar'); location.href = r.url; }
       catch (e) {

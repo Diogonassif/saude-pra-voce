@@ -78,6 +78,7 @@
         ${av ? `<p class="small">Avaliação: <span class="stars">${'★'.repeat(av.nota)}</span> ${esc(av.comentario)}</p>` : ''}
         <div class="row">
           ${souCli && c.status === 'aceito' ? '<button class="btn btn-green" id="pagar">Pagar e confirmar</button>' : ''}
+          ${souCli && ['solicitado', 'aceito'].includes(c.status) && DC.editarPedido ? '<button class="btn btn-ghost" id="editar">Editar pedido</button>' : ''}
           ${souPro && c.status === 'solicitado' ? '<button class="btn btn-green" id="aceitar">Aceitar pedido</button>' : ''}
           ${(souPro && ['solicitado', 'aceito'].includes(c.status)) || (souAdm && ['solicitado', 'aceito', 'recusado'].includes(c.status)) ? '<button class="btn btn-ghost" id="proporData">Sugerir outra data</button>' : ''}
           ${souAdm && ['solicitado', 'aceito', 'recusado'].includes(c.status) ? '<button class="btn btn-ghost" id="trocarPro">Recomendar outro profissional</button>' : ''}
@@ -112,6 +113,7 @@
       act('#recusar', async () => { const r = await DC.confirm('Recusar este pedido?', 'Recusar', motivo); if (!r) return; await DC.api('/api/contratar', { acao: 'recusar', id, motivo: r.valor }); DC.toast('Pedido recusado'); render(); });
       act('#cancelar', async () => { const r = await DC.confirm('Cancelar esta contratação?', 'Cancelar', motivo); if (!r) return; await DC.api('/api/contratar', { acao: 'cancelar', id, motivo: r.valor }); DC.toast('Cancelado'); render(); });
       act('#concluir', async () => { if (!(await DC.confirm('Marcar o atendimento como concluído?', 'Concluir'))) return; await DC.api('/api/contratar', { acao: 'concluir', id }); DC.toast('Atendimento concluído'); render(); });
+      act('#editar', async () => { m.close(); await DC.editarPedido(c, () => DC.abrirContratacao(id, papel, recarregar)); });
       act('#aceitarData', async () => { const r = await DC.api('/api/contratar', { acao: 'aceitar_data', id }); DC.toast(r.status === 'aceito' ? 'Nova data aceita. Agora é só pagar para confirmar.' : 'Nova data aceita. Avisamos o profissional.'); render(); });
       act('#recusarData', async () => { await DC.api('/api/contratar', { acao: 'recusar_data', id }); DC.toast('Mantivemos a data original'); render(); });
       act('#proporData', async () => proporData(c));

@@ -102,20 +102,22 @@
   }
 
   // ------------------------------------------------------------------ contratar (escolhe tempo e paga)
-  function contratar(p) {
+  // ed = contratação existente (editar o pedido antes de pagar)
+  function contratar(p, ed, depois) {
     if (!p) return;
-    const u = ultimo();
+    const u = ed ? { paciente_nome: ed.paciente_nome, paciente_idade: ed.paciente_idade, cuidados: ed.cuidados, local_tipo: ed.local_tipo, endereco: ed.endereco, cidade: ed.cidade, horario: ed.horario ? ed.horario.slice(0, 5) : '', horas_dia: ed.horas_dia } : ultimo();
     const mods = Object.keys(DC.MODAL).filter((k) => p[DC.MODAL[k].campo]);
-    const st = { mod: mods[0], semana: [0, 1, 2, 3, 4, 5, 6], local: u.local_tipo || ((p.atende || [])[0]) || 'residencia' };
-    const m = DC.modal(`<div class="row" style="flex-wrap:nowrap">${DC.av(p.nome, p.avatar_url)}<div class="grow"><h2>Contratar ${esc(p.nome)}</h2><p class="small mute">${esc(DC.espec(p.especialidade))}</p></div></div>
+    const st = { mod: ed && mods.includes(ed.modalidade) ? ed.modalidade : mods[0], semana: ed && (ed.dias_semana || []).length ? [...ed.dias_semana].sort() : [0, 1, 2, 3, 4, 5, 6], local: u.local_tipo || ((p.atende || [])[0]) || 'residencia' };
+    const hoje = DC.hoje(), iniV = ed && ed.inicio >= hoje ? ed.inicio : hoje, fimV = ed && ed.fim >= iniV ? ed.fim : iniV;
+    const m = DC.modal(`<div class="row" style="flex-wrap:nowrap">${DC.av(p.nome, p.avatar_url)}<div class="grow"><h2>${ed ? 'Editar pedido #' + ed.codigo : 'Contratar ' + esc(p.nome)}</h2><p class="small mute">${esc(DC.espec(p.especialidade))}</p></div></div>
       <div class="col"><b class="small">Como cobrar</b><div class="seg" id="md">${mods.map((k) => `<button type="button" data-m="${k}" class="${k === st.mod ? 'on' : ''}">${DC.MODAL[k].nome}<br><span class="tiny">${brl(p[DC.MODAL[k].campo])}</span></button>`).join('')}</div></div>
       <div class="grid2">
-        <label class="f">Primeiro dia<input class="in" type="date" id="ini" min="${DC.hoje()}" value="${DC.hoje()}"></label>
-        <label class="f">Último dia<input class="in" type="date" id="fim" min="${DC.hoje()}" value="${DC.hoje()}"></label>
-        <label class="f">Horário de início<input class="in" type="time" id="hor" value="${u.horario || '07:00'}"></label>
+        <label class="f">Primeiro dia<input class="in" type="date" id="ini" min="${hoje}" value="${iniV}"></label>
+        <label class="f">Último dia<input class="in" type="date" id="fim" min="${iniV}" value="${fimV}"></label>
+        <label class="f">Horário de início<input class="in" type="time" id="hor" value="${ed ? (u.horario || '') : (u.horario || '07:00')}"></label>
         <label class="f" id="hdL">Horas por dia<input class="in" type="number" id="hd" min="1" max="24" value="${u.horas_dia || 6}"></label>
       </div>
-      <div class="col" style="gap:6px"><b class="small">Dias da semana</b><div class="sem" id="sem">${DC.SEMANA.map((d, i) => `<button type="button" data-d="${i}" class="on">${d}</button>`).join('')}</div></div>
+      <div class="col" style="gap:6px"><b class="small">Dias da semana</b><div class="sem" id="sem">${DC.SEMANA.map((d, i) => `<button type="button" data-d="${i}" class="${st.semana.includes(i) ? 'on' : ''}">${d}</button>`).join('')}</div></div>
       <h3>Quem vai receber o cuidado</h3>
       <div class="grid2" style="grid-template-columns:1fr 110px"><label class="f">Nome<input class="in" id="pn" maxlength="120" value="${esc(u.paciente_nome || '')}" placeholder="Ex.: Dona Lúcia"></label>
         <label class="f">Idade<input class="in" id="pi" inputmode="numeric" maxlength="3" value="${esc(u.paciente_idade ?? '')}"></label></div>
@@ -123,10 +125,11 @@
       <div class="col" style="gap:6px"><b class="small">Onde</b><div class="seg" id="lc">${Object.entries(DC.LOCAL).map(([k, v]) => `<button type="button" data-l="${k}" class="${k === st.local ? 'on' : ''}">${v.split(' /')[0]}</button>`).join('')}</div></div>
       <div class="grid2" style="grid-template-columns:1fr 200px"><label class="f">Endereço<small id="endDica">rua, número, bairro${''}</small><input class="in" id="en" maxlength="300" value="${esc(u.endereco || '')}"></label>
         <label class="f">Cidade<input class="in" id="ci" maxlength="80" value="${esc(u.cidade || p.cidade || '')}"></label></div>
-      <label class="f">Observações (opcional)<textarea class="in" id="no" maxlength="2000" style="min-height:70px" placeholder="Portaria, animais em casa, quem estará presente…"></textarea></label>
+      <label class="f">Observações (opcional)<textarea class="in" id="no" maxlength="2000" style="min-height:70px" placeholder="Portaria, animais em casa, quem estará presente…">${esc(ed ? ed.notas || '' : '')}</textarea></label>
+      ${ed && ed.status === 'aceito' ? '<div class="banner">Se você mudar datas, horários ou dias, o pedido volta para o profissional confirmar de novo.</div>' : ''}
       <div class="resumo-total" id="tot"></div>
       <div class="priv"><span aria-hidden="true">🔒</span><span>Os dados do paciente ficam só entre você, o profissional e a nossa central. O contato do profissional aparece depois do pagamento.</span></div>
-      <div class="acts"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-green" id="env">Enviar pedido</button></div>`, { wide: true, semFoco: true });
+      <div class="acts"><button class="btn btn-ghost" data-close>${ed ? 'Voltar' : 'Cancelar'}</button><button class="btn btn-green" id="env">${ed ? 'Salvar alterações' : 'Enviar pedido'}</button></div>`, { wide: true, semFoco: true });
     const val = () => {
       const ini = $('#ini', m.el).value, fim = $('#fim', m.el).value || ini;
       const dias = DC.dias(ini, fim, st.semana);
@@ -155,17 +158,26 @@
     $('#env', m.el).onclick = () => DC.busy($('#env', m.el), async () => {
       const v = val();
       if (!v.dias.length) throw new Error('Escolha datas e dias da semana');
-      const body = { acao: 'criar', pro_id: p.user_id, modalidade: st.mod, inicio: v.ini, fim: v.fim, horario: $('#hor', m.el).value, horas_dia: v.hd,
+      const body = { acao: ed ? 'editar' : 'criar', id: ed ? ed.id : undefined, pro_id: p.user_id, modalidade: st.mod, inicio: v.ini, fim: v.fim, horario: $('#hor', m.el).value, horas_dia: v.hd,
         dias_semana: st.semana, paciente_nome: $('#pn', m.el).value.trim(), paciente_idade: $('#pi', m.el).value.replace(/\D/g, ''),
         cuidados: $('#cu', m.el).value.trim(), local_tipo: st.local, endereco: $('#en', m.el).value.trim(), cidade: $('#ci', m.el).value.trim(), notas: $('#no', m.el).value.trim() };
       if (!body.paciente_nome) throw new Error('Informe quem vai receber o cuidado');
       if (!body.endereco) throw new Error('Informe o endereço do atendimento');
       const r = await DC.api('/api/contratar', body);
+      if (ed) { m.close(); DC.toast(r.voltou ? 'Pedido alterado. Ele volta para o profissional confirmar.' : 'Pedido alterado · total ' + brl(r.total_cliente, 2)); if (depois) depois(); return; }
       guardaUltimo({ paciente_nome: body.paciente_nome, paciente_idade: body.paciente_idade, cuidados: body.cuidados, local_tipo: body.local_tipo, endereco: body.endereco, cidade: body.cidade, horario: body.horario, horas_dia: body.horas_dia });
       m.close(); DC.toast('Pedido enviado! Avisamos ' + p.nome.split(' ')[0] + '.');
       location.hash = 'contratacoes'; setTimeout(() => DC.abrirContratacao(r.id, 'cliente', contratacoes), 250);
     });
   }
+
+  DC.editarPedido = async (c, depois) => {
+    const { data, error } = await sb.rpc('catalogo');
+    if (error) throw error;
+    const p = (data || []).find((x) => x.user_id === c.pro_id);
+    if (!p) throw new Error('Este profissional não está no catálogo agora. Cancele e escolha outro, ou fale com a central.');
+    contratar(p, c, depois);
+  };
 
   // ------------------------------------------------------------------ minhas contratações
   async function contratacoes() {

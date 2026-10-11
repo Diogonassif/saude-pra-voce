@@ -1,10 +1,29 @@
 // Conecta a conta Mercado Pago do profissional à aplicação de marketplace da Saúde Pra Você (OAuth), para receber com split.
 // POST (logado) → devolve a URL de autorização. GET com ?code&state → troca o código e guarda o token.
-import { send, who, admin, env, sign, unsign, fail, handler, appUrl } from './_lib.js';
+import { send, who, admin, one, env, sign, unsign, fail, handler, appUrl } from './_lib.js';
 
 export default handler(async (req, res) => {
   const url = appUrl(req);
   const redirect = url + '/api/mp-conectar';
+  // dados da conta conectada (para o profissional ver qual é) e desconectar
+  if (req.method === 'POST' && (req.headers['x-acao'] === 'info' || req.headers['x-acao'] === 'desconectar')) {
+    const me = await who(req);
+    const conta = await one(`mp_contas?user_id=eq.${me.id}&select=mp_user_id,access_token,conectado_em`);
+    if (req.headers['x-acao'] === 'desconectar') {
+      const ativos = await admin(`contratacoes?pro_id=eq.${me.id}&status=eq.aceito&select=id`);
+      if ((ativos || []).length) throw fail(409, 'Você tem pedido aceito aguardando pagamento. Conecte outra conta em vez de desconectar.');
+      await admin(`mp_contas?user_id=eq.${me.id}`, { method: 'DELETE' });
+      return send(res, 200, { ok: true });
+    }
+    if (!conta) return send(res, 200, { conectado: false });
+    let nome = '', email = '';
+    try {
+      const r = await fetch('https://api.mercadopago.com/users/me', { headers: { authorization: 'Bearer ' + conta.access_token } });
+      if (r.ok) { const u = await r.json(); nome = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.nickname || ''; email = u.email || ''; }
+    } catch (e) { /* mostra só o número da conta */ }
+    const mascara = (e) => e.replace(/^(.{2}).*(@.*)$/, '$1•••$2');
+    return send(res, 200, { conectado: true, conta: conta.mp_user_id, nome, email: email ? mascara(email) : '', desde: conta.conectado_em });
+  }
   if (req.method === 'POST') {
     const me = await who(req);
     if (me.role !== 'pro' && !me.isAdmin) throw fail(403, 'Só profissionais conectam conta de recebimento');
