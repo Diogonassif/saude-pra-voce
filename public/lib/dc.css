@@ -250,3 +250,6 @@ tr.det-mes > td { background: #F7FAFA; padding: 10px 12px 16px; }
 .troca-seg a.on { box-shadow: 0 0 0 1px rgba(0,0,0,.1); }
 @media (max-width: 760px) { .nav { border-left: 0; padding-left: 0; } .area { font-size: 11.5px; padding: 5px 10px; } .troca { padding: 5px 12px; } .troca-l { display: none; } }
 @media (max-width: 520px) { .top-in .brand .wm { display: none; } .top-in .who { margin-left: auto; } }
+
+.nav.so1 { visibility: hidden; }            /* uma aba só (Painel Mind): não precisa de menu */
+.nav.semdiv { border-left: 0; padding-left: 0; }

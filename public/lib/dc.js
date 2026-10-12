@@ -193,8 +193,8 @@
         <span class="troca-seg">${Object.entries(DC.AREAS).map(([h, a]) => `<a href="${h}" class="${location.pathname === h ? 'on ' + a.cls : ''}" ${location.pathname === h ? 'aria-current="page"' : ''}><span aria-hidden="true">${a.ic}</span> ${a.nome}</a>`).join('')}</span></div>` : '';
     el.innerHTML = `${troca}<div class="top-in">
       <a class="brand" href="${DC.home(me.role, me)}">${DC.marca()}</a>
-      ${aqui ? `<span class="area ${aqui.cls}"><span aria-hidden="true">${aqui.ic}</span> ${aqui.selo}</span>` : ''}
-      <nav class="nav" aria-label="Menu da ${aqui ? DC.esc(aqui.selo.toLowerCase()) : 'área'}">${abas.map(([k, l]) => `<a href="#${k}" data-tab="${k}">${DC.esc(l)}</a>`).join('')}</nav>
+      ${aqui && !me.isMind ? `<span class="area ${aqui.cls}"><span aria-hidden="true">${aqui.ic}</span> ${aqui.selo}</span>` : ''}
+      <nav class="nav${abas.length < 2 ? ' so1' : ''}${me.isMind ? ' semdiv' : ''}" aria-label="Menu da ${aqui ? DC.esc(aqui.selo.toLowerCase()) : 'área'}">${abas.map(([k, l]) => `<a href="#${k}" data-tab="${k}">${DC.esc(l)}</a>`).join('')}</nav>
       <div class="who">${!me.isMind && me.isAdmin && location.pathname !== '/admin.html' ? '<a class="btn btn-sm btn-ghost" href="/admin.html">Central</a>' : ''}
         <button class="btn btn-sm btn-ghost" id="sair" title="${DC.esc(DC.telBonito(me.telefone))}">Sair</button><span id="meuAv">${DC.av(me.nome, me.foto_url)}</span></div></div>`;
     DC.$('#sair').onclick = DC.sair;
