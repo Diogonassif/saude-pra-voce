@@ -26,6 +26,36 @@
   }
   const alertaMind = (devido, link = true) => devido > 0.009 ? `<div class="banner alerta row" style="justify-content:space-between"><span><b>A Saúde Pra Você deve ${brl(devido, 2)} à Mind</b> (10% dos atendimentos pagos). Registre o repasse quando pagar. O MindSaaS mostra o mesmo alerta.</span>${link ? '<a class="btn btn-sm" href="#financeiro">Ver repasses</a>' : ''}</div>` : '';
 
+
+  // ------------------------------------------------------------------ convites pelo WhatsApp
+  const CONVITE = {
+    pro: (nome, link) => `Olá${nome ? ', ' + nome : ''}! Aqui é da Saúde Pra Você. Estamos convidando enfermeiros, técnicos de enfermagem, cuidadores e acompanhantes hospitalares para o nosso app.\n\nNele você monta o seu perfil, define o seu próprio valor, organiza a sua agenda e recebe pedidos de famílias da sua região. O pagamento é feito pelo app e cai direto na sua conta Mercado Pago.\n\nO cadastro é grátis: ${link}`,
+    cliente: (nome, link) => `Olá${nome ? ', ' + nome : ''}! Aqui é da Saúde Pra Você. Convidamos você a conhecer o nosso app para contratar enfermeiros, técnicos de enfermagem, cuidadores e acompanhantes hospitalares de confiança.\n\nVocê vê o perfil, as avaliações, os valores e a agenda de cada profissional (enfermagem com COREN conferido), conversa pelo app e paga com segurança por Pix ou cartão. Se não encontrar quem precisa, a nossa central procura para você.\n\nO cadastro é grátis: ${link}`,
+  };
+  function convidar(tipo) {
+    const link = `${location.origin}/entrar.html?como=${tipo}&criar=1`;
+    const m = DC.modal(`<h2>Convidar ${tipo === 'pro' ? 'profissional' : 'contratante'}</h2>
+      <p class="small mute">Digite o celular, confira a mensagem e envie pelo WhatsApp. O link já abre o cadastro como ${tipo === 'pro' ? 'profissional' : 'contratante'}.</p>
+      <div class="grid2"><label class="f">Celular com DDD<input class="in" id="cvTel" inputmode="tel" placeholder="(16) 99999-0000" autocomplete="off"></label>
+        <label class="f">Nome (opcional)<input class="in" id="cvNome" maxlength="60" placeholder="ex.: Maria"></label></div>
+      <label class="f">Mensagem<textarea class="in" id="cvMsg" maxlength="1500" style="min-height:190px"></textarea></label>
+      <div class="acts"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-green" id="cvOk">Enviar pelo WhatsApp</button></div>`, { wide: true });
+    let editada = false;
+    const msg = $('#cvMsg', m.el);
+    const monta = () => { if (!editada) msg.value = CONVITE[tipo]($('#cvNome', m.el).value.trim().split(' ')[0], link); };
+    monta();
+    msg.oninput = () => { editada = true; };
+    $('#cvNome', m.el).oninput = monta;
+    $('#cvOk', m.el).onclick = () => {
+      const d = DC.tel($('#cvTel', m.el).value);
+      if (!d) return DC.erro(new Error('Celular inválido: use DDD + número'));
+      if (!msg.value.trim()) return DC.erro(new Error('Escreva a mensagem'));
+      window.open(DC.wa(d, msg.value.trim()), '_blank', 'noopener');
+      m.close(); DC.toast('WhatsApp aberto com a mensagem. É só tocar em enviar.');
+    };
+  }
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-convite]'); if (b) convidar(b.dataset.convite); });
+
   // ------------------------------------------------------------------ visão geral
   async function visao() {
     const [pr, pf, ne, ct, din] = await Promise.all([
@@ -66,7 +96,7 @@
     const dt = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const PAPEL = { pro: 'Profissional', cliente: 'Contratante', admin: 'Gestão' };
 
-    app.innerHTML = `<div class="head"><div><h1>Visão geral</h1><p>${mesNome(mesAtual)} · ${C.length} contratação(ões) no total · ${P.length} conta(s)</p></div></div>
+    app.innerHTML = `<div class="head"><div><h1>Visão geral</h1><p>${mesNome(mesAtual)} · ${C.length} contratação(ões) no total · ${P.length} conta(s)</p></div><div class="row"><button class="btn btn-sm" data-convite="cliente">📲 Convidar contratante</button><button class="btn btn-sm btn-green" data-convite="pro">📲 Convidar profissional</button></div></div>
       ${alertaMind(din.devido)}
       <div class="card col"><h2>Precisa de atenção</h2>${at.length ? `<div class="list">${at.map(([n, t, go, cor]) => `<button type="button" class="li linha" data-ir="${go}"><span class="tag t-${cor}" style="min-width:34px;text-align:center">${n}</span><span class="grow">${t}</span><span class="mute">Abrir →</span></button>`).join('')}</div>` : '<p class="small mute">Tudo em dia. Nenhuma pendência agora.</p>'}</div>
       <div class="grid2">
@@ -205,7 +235,7 @@
     if (error) throw error;
     const PV = Object.fromEntries((pv.data || []).map((x) => [x.user_id, x]));
     const TEL = Object.fromEntries((pf.data || []).map((x) => [x.id, x.telefone]));
-    app.innerHTML = `<div class="head"><div><h1>Profissionais</h1><p>Técnicos e enfermeiros só aparecem no catálogo depois que a central confere o COREN no Cofen. Clique em "Consultar no Cofen", busque pelo número/UF e marque o resultado.</p></div><input class="in" id="q" placeholder="Buscar" style="max-width:280px" aria-label="Buscar profissionais"></div>
+    app.innerHTML = `<div class="head"><div><h1>Profissionais</h1><p>Técnicos e enfermeiros só aparecem no catálogo depois que a central confere o COREN no Cofen. Clique em "Consultar no Cofen", busque pelo número/UF e marque o resultado.</p></div><div class="row"><button class="btn btn-sm btn-green" data-convite="pro">📲 Convidar profissional</button><input class="in" id="q" placeholder="Buscar" style="max-width:280px" aria-label="Buscar profissionais"></div></div>
       ${(() => { const n = (data || []).filter((p) => DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren && p.coren && p.coren_status === 'pendente').length; return n ? `<div class="banner warn">${n} COREN aguardando conferência.</div>` : ''; })()}
       <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Profissional</th><th>Valores (dele)</th><th>COREN</th><th>Documentos</th><th>Catálogo</th><th>Selo</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
     const docs = (u) => { const x = PV[u] || {}; return [['doc_identidade', 'Identidade'], ['doc_coren', 'COREN'], ['doc_antecedentes', 'Antecedentes']].map(([k, n]) => x[k] ? `<button class="link small" data-doc="${esc(x[k])}">${n}</button>` : `<span class="tiny mute">${n} —</span>`).join('<br>') + (x.cpf ? `<br><span class="tiny">CPF ${esc(x.cpf)}</span>` : ''); };
@@ -258,7 +288,7 @@
     const [{ data, error }, ct, ne] = await Promise.all([sb.from('profiles').select('*').eq('role', 'cliente').order('created_at', { ascending: false }), sb.from('contratacoes').select('cliente_id,status'), sb.from('necessidades').select('cliente_id')]);
     if (error) throw error;
     const n = (L, id, f) => (L || []).filter((x) => x.cliente_id === id && (!f || f(x))).length;
-    app.innerHTML = `<div class="head"><div><h1>Contratantes</h1></div></div><div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Contratante</th><th>Celular</th><th>Contratações</th><th>Pagas</th><th>Pedidos à central</th><th>Desde</th><th></th></tr></thead><tbody>
+    app.innerHTML = `<div class="head"><div><h1>Contratantes</h1></div><button class="btn btn-sm" data-convite="cliente">📲 Convidar contratante</button></div><div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Contratante</th><th>Celular</th><th>Contratações</th><th>Pagas</th><th>Pedidos à central</th><th>Desde</th><th></th></tr></thead><tbody>
       ${(data || []).map((p) => `<tr class="go" data-crow="${p.id}" title="Duplo clique para ver tudo"><td><b>${esc(p.nome)}</b>${p.email ? `<br><span class="small mute">${esc(p.email)}</span>` : ''}</td><td class="small"><a href="${esc(DC.wa(p.telefone))}" target="_blank" rel="noopener">${esc(DC.telBonito(p.telefone))}</a></td>
         <td>${n(ct.data, p.id)}</td><td>${n(ct.data, p.id, (x) => ['confirmado', 'concluido'].includes(x.status))}</td><td>${n(ne.data, p.id)}</td><td class="small">${DC.data(p.created_at)}</td>
         <td><button class="btn btn-sm" data-cver="${p.id}">Ver</button> <button class="btn btn-sm btn-ghost" data-senha="${p.id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum contratante ainda.</td></tr>'}</tbody></table></div></div>`;

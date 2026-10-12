@@ -56,6 +56,17 @@
           <span class="row"><button class="btn btn-sm btn-green" id="aceitarData">Aceitar nova data</button><button class="btn btn-sm btn-ghost" id="recusarData">Manter a data original</button></span></div>`;
         else aviso += `<div class="banner info">Nova data sugerida (${quando}). Aguardando o contratante responder.</div>`;
       }
+      const pv = c.proposta_valor;
+      if (pv && !souAdm) {
+        const minha = (pv.por === 'cliente') === souCli;
+        const quem = pv.por === 'cliente' ? esc(c.cliente_nome.split(' ')[0]) : esc(c.pro_nome.split(' ')[0]);
+        const novo = v && v.proposta_total != null ? (souCli ? `novo total <b>${brl(v.proposta_total, 2)}</b> (hoje ${brl(v.total, 2)})` : `você receberia <b>${brl(v.proposta_total, 2)}</b> (hoje ${brl(v.total, 2)})`) : '';
+        aviso += minha
+          ? `<div class="banner info">💰 Você propôs um novo valor: ${novo}. Aguardando ${souCli ? 'o profissional' : 'o contratante'} responder.</div>`
+          : `<div class="banner info col" style="gap:8px"><span>💰 <b>${quem} propôs um novo valor:</b> ${novo}.${pv.nota ? '<br>“' + esc(pv.nota) + '”' : ''}</span>
+            <span class="row"><button class="btn btn-sm btn-green" id="aceitarValor">Aceitar valor</button><button class="btn btn-sm btn-ghost" id="contraValor">Fazer contraproposta</button><button class="btn btn-sm btn-ghost" id="recusarValor">Recusar</button></span></div>`;
+      }
+      if (pv && souAdm) aviso += `<div class="banner info">💰 Negociação de valor em andamento (proposta ${pv.por === 'cliente' ? 'do contratante' : 'do profissional'}).</div>`;
       if (pago && contato) aviso += `<div class="banner ok row" style="justify-content:space-between"><span>${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b> · ${esc(DC.telBonito(contato))}</span><a class="btn btn-sm btn-green" href="${esc(DC.wa(contato, 'Olá! Sou ' + DC.me.nome.split(' ')[0] + ', do atendimento Saúde Pra Você #' + c.codigo + '.'))}" target="_blank" rel="noopener">WhatsApp</a></div>`;
 
       const fimPassou = c.fim <= DC.hoje();
@@ -65,7 +76,7 @@
       m.el.innerHTML = `
         <div class="row"><span class="small mute">#${c.codigo}</span>${DC.stTag(c.status)}${c.origem === 'central' ? '<span class="tag t-blue">Indicado pela central</span>' : ''}<button class="btn btn-sm btn-ghost right" data-close aria-label="Fechar">✕</button></div>
         <h2>${esc(DC.espec(c.especialidade))} · ${esc(DC.MODAL[c.modalidade].nome.toLowerCase())}</h2>
-        <p class="small mute">${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b></p>
+        <div class="row" style="flex-wrap:nowrap">${souAdm ? DC.av(c.cliente_nome, DC.foto(c.cliente_id)) + DC.av(c.pro_nome, DC.foto(c.pro_id)) : DC.av(outro, DC.foto(souPro ? c.cliente_id : c.pro_id), 'lg')}<p class="small mute">${souAdm ? `Contratante: <b>${esc(c.cliente_nome)}</b> · Profissional: <b>${esc(c.pro_nome)}</b>` : `${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b>`}</p></div>
         ${aviso}
         <div class="grid2">
           <div class="col" style="gap:4px"><span class="tiny mute">QUANDO</span><b>${DC.periodo(c)}${c.horario ? ' · a partir das ' + c.horario.slice(0, 5) : ''}</b><span class="small">${esc(semana)} · ${esc(DC.qtdTxt(c))}</span></div>
@@ -77,7 +88,8 @@
         ${avaliar}
         ${av ? `<p class="small">Avaliação: <span class="stars">${'★'.repeat(av.nota)}</span> ${esc(av.comentario)}</p>` : ''}
         <div class="row">
-          ${souCli && c.status === 'aceito' ? '<button class="btn btn-green" id="pagar">Pagar e confirmar</button>' : ''}
+          ${souCli && c.status === 'aceito' ? `<button class="btn btn-green" id="pagar" ${pv ? 'disabled title="Responda a proposta de valor antes"' : ''}>Pagar e confirmar</button>` : ''}
+          ${(souCli || souPro) && ['solicitado', 'aceito'].includes(c.status) ? `<button class="btn btn-ghost" id="proporValor">💰 ${souCli ? 'Propor outro valor' : 'Propor meu valor'}</button>` : ''}
           ${souCli && ['solicitado', 'aceito'].includes(c.status) && DC.editarPedido ? '<button class="btn btn-ghost" id="editar">Editar pedido</button>' : ''}
           ${souPro && c.status === 'solicitado' ? '<button class="btn btn-green" id="aceitar">Aceitar pedido</button>' : ''}
           ${(souPro && ['solicitado', 'aceito'].includes(c.status)) || (souAdm && ['solicitado', 'aceito', 'recusado'].includes(c.status)) ? '<button class="btn btn-ghost" id="proporData">Sugerir outra data</button>' : ''}
@@ -87,17 +99,17 @@
           ${c.status === 'confirmado' && (souCli || souAdm || (souPro && fimPassou)) ? '<button class="btn btn-ghost" id="concluir">Marcar como concluído</button>' : ''}
         </div>
         <div class="col" style="border-top:1px solid var(--line);padding-top:14px"><h3>Conversa</h3>
-          ${pago ? '' : '<p class="tiny mute">Telefones, e-mails e links ficam ocultos até o pagamento. Combine tudo por aqui com segurança.</p>'}
+          ${pago ? '' : `<p class="tiny mute">Telefones, e-mails e links ficam ocultos até o pagamento. Combine tudo por aqui com segurança${['solicitado', 'aceito'].includes(c.status) && !souAdm ? ', inclusive o valor: use “💰 Propor' + (souCli ? ' outro valor' : ' meu valor') + '”' : ''}.</p>`}
           <div class="chat" id="chat">${msgs.length ? '' : '<p class="small mute" id="semmsg">Nenhuma mensagem ainda.</p>'}</div>
           ${['recusado', 'cancelado'].includes(c.status) ? '' : '<form class="row" id="cf"><label class="sr" for="ct">Mensagem</label><input class="in grow" id="ct" maxlength="4000" placeholder="Escreva uma mensagem" autocomplete="off"><button class="btn" type="submit">Enviar</button></form>'}
         </div>`;
 
       const chat = $('#chat', m.el);
-      const bolha = (x) => `<div data-mid="${x.id}" class="bub ${x.autor === eu ? 'out' : 'in'}">${esc(x.texto)}<small>${new Date(x.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</small></div>`;
+      const bolha = (x) => x.tipo && x.tipo !== 'texto' ? `<div data-mid="${x.id}" class="bub sis">${esc(x.texto)}<small>${new Date(x.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</small></div>` : `<div data-mid="${x.id}" class="bub ${x.autor === eu ? 'out' : 'in'}">${esc(x.texto)}<small>${new Date(x.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</small></div>`;
       const poe = (x) => { if (chat.querySelector(`[data-mid="${x.id}"]`)) return; const s = $('#semmsg', m.el); if (s) s.remove(); chat.insertAdjacentHTML('beforeend', bolha(x)); chat.scrollTop = chat.scrollHeight; };
       msgs.forEach(poe);
       if (canal) sb.removeChannel(canal);
-      canal = sb.channel('ctr-' + id).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensagens', filter: 'contratacao_id=eq.' + id }, (ev) => poe(ev.new)).subscribe();
+      canal = sb.channel('ctr-' + id).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mensagens', filter: 'contratacao_id=eq.' + id }, (ev) => { if (ev.new.tipo && ev.new.tipo !== 'texto' && ev.new.autor !== eu) render(); else poe(ev.new); }).subscribe();
       const cf = $('#cf', m.el);
       if (cf) cf.onsubmit = async (e) => {
         e.preventDefault(); const t = $('#ct', m.el).value.trim(); if (!t) return;
@@ -117,6 +129,10 @@
       act('#aceitarData', async () => { const r = await DC.api('/api/contratar', { acao: 'aceitar_data', id }); DC.toast(r.status === 'aceito' ? 'Nova data aceita. Agora é só pagar para confirmar.' : 'Nova data aceita. Avisamos o profissional.'); render(); });
       act('#recusarData', async () => { await DC.api('/api/contratar', { acao: 'recusar_data', id }); DC.toast('Mantivemos a data original'); render(); });
       act('#proporData', async () => proporData(c));
+      act('#proporValor', async () => proporValor(c, v, souCli));
+      act('#contraValor', async () => proporValor(c, v, souCli));
+      act('#aceitarValor', async () => { if (!(await DC.confirm('Aceitar o novo valor?', 'Aceitar'))) return; await DC.api('/api/contratar', { acao: 'aceitar_valor', id }); DC.toast(souCli ? 'Valor aceito. Agora é só pagar para confirmar.' : 'Valor aceito. O pedido está aceito; aguarde o pagamento.'); render(); });
+      act('#recusarValor', async () => { await DC.api('/api/contratar', { acao: 'recusar_valor', id }); DC.toast('Proposta recusada'); render(); });
       act('#trocarPro', async () => trocarPro(c));
       act('#pagar', async () => { const r = await DC.api('/api/pagar', { contratacao_id: id }); location.href = r.url; });
       let nota = 0;
@@ -124,6 +140,19 @@
       act('#avs', async () => {
         const { error } = await sb.from('avaliacoes').insert({ contratacao_id: id, cliente_id: eu, pro_id: c.pro_id, nota, comentario: $('#avc', m.el).value.trim() });
         if (error) throw error; DC.toast('Obrigado pela avaliação'); render();
+      });
+    }
+    function proporValor(c, v, souCli) {
+      const atual = v ? +v.total : 0;
+      const mm = DC.modal(`<h2>${souCli ? 'Propor outro valor' : 'Propor meu valor'}</h2>
+        <p class="small mute">${souCli ? `Hoje o total do atendimento é <b>${brl(atual, 2)}</b> (${esc(DC.qtdTxt(c))}). Diga quanto você gostaria de pagar no total. O profissional aceita ou recusa.` : `Hoje você recebe <b>${brl(atual, 2)}</b> por este atendimento (${esc(DC.qtdTxt(c))}). Diga quanto quer receber no total. O contratante aceita ou recusa.`}</p>
+        <label class="f">${souCli ? 'Total que você quer pagar (R$)' : 'Total que você quer receber (R$)'}<input class="in" type="number" id="pvV" min="1" step="0.01" inputmode="decimal" value="${atual ? atual.toFixed(2) : ''}"></label>
+        <label class="f">Recado (opcional)<textarea class="in" id="pvN" maxlength="300" style="min-height:70px" placeholder="${souCli ? 'ex.: Consigo pagar esse valor se for de segunda a sexta' : 'ex.: Para esse período, consigo fazer por esse valor'}"></textarea></label>
+        <div class="acts"><button class="btn btn-ghost" data-close>Voltar</button><button class="btn" id="pvOk">Enviar proposta</button></div>`);
+      $('#pvOk', mm.el).onclick = () => DC.busy($('#pvOk', mm.el), async () => {
+        const val = +$('#pvV', mm.el).value; if (!(val > 0)) throw new Error('Informe o valor');
+        const r = await DC.api('/api/contratar', { acao: 'propor_valor', id, valor: val, nota: $('#pvN', mm.el).value });
+        mm.close(); DC.toast('Proposta enviada' + (r.total_cliente != null ? ' · total ' + brl(r.total_cliente, 2) : r.total_pro != null ? ' · você receberia ' + brl(r.total_pro, 2) : '')); render();
       });
     }
     function proporData(c) {

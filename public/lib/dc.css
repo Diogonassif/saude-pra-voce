@@ -233,3 +233,6 @@ details.extrato[open] .a2 { display: inline; }
 
 .seta { display: inline-block; width: 14px; color: var(--mute); }
 tr.det-mes > td { background: #F7FAFA; padding: 10px 12px 16px; }
+.bub.sis { align-self: center; max-width: 92%; background: #FFF6DD; color: var(--ink, #12303A); border: 1px solid #F1DFA6; text-align: center; font-weight: 600; font-size: 13px; }
+.av-edit { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.av.xl { width: 96px; height: 96px; font-size: 30px; }

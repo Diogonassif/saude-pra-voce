@@ -37,7 +37,7 @@
   const lista = async () => (await sb.from('contratacoes').select('*,contratacao_pro(total)').eq('pro_id', me.id).order('inicio')).data || [];
   const totPro = (c) => { const v = Array.isArray(c.contratacao_pro) ? c.contratacao_pro[0] : c.contratacao_pro; return v ? +v.total : 0; };
   const linha = (c) => `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
-    ${DC.av(c.cliente_nome)}<span class="grow"><b>${esc(c.cliente_nome)}</b> <span class="small mute">· ${esc(DC.MODAL[c.modalidade].nome)}</span><br>
+    ${DC.av(c.cliente_nome, DC.foto(c.cliente_id))}<span class="grow"><b>${esc(c.cliente_nome)}</b> <span class="small mute">· ${esc(DC.MODAL[c.modalidade].nome)}</span><br>
     <span class="small mute">${DC.periodo(c)}${c.horario ? ' · ' + c.horario.slice(0, 5) : ''} · ${esc(DC.LOCAL[c.local_tipo])}${c.cidade ? ', ' + esc(c.cidade) : ''} · ${esc(c.paciente_nome)}</span></span>
     <span style="text-align:right">${DC.stTag(c.status)}<br><b class="small">${brl(totPro(c), 2)}</b></span></button>`;
   const liga = (recarregar) => $$('[data-c]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.c, 'pro', recarregar)));
@@ -205,6 +205,9 @@
           <p class="tiny mute">Toque num cuidado para marcar ou desmarcar. Os que você escrever ficam salvos no seu perfil.</p></div>
       </div></div>
       <div class="side">
+        <div id="fotoBox"></div>
+        <div class="card col"><h2>Chame outros profissionais</h2><p class="small mute">Conhece enfermeiros, técnicos, cuidadores ou acompanhantes? Compartilhe o app com eles. Quanto mais profissionais, mais famílias chegam até a plataforma.</p>
+          <div class="row"><button class="btn btn-sm btn-green" id="compWa">Compartilhar no WhatsApp</button><button class="btn btn-sm btn-ghost" id="compOutro">Outros apps / copiar link</button></div></div>
         <div class="card col"><h2>Quanto você quer ganhar</h2><p class="small mute">A taxa da plataforma não sai do seu valor: é somada por cima no preço que o contratante vê. Tarifas do Mercado Pago seguem as condições da sua conta.</p>
           <label class="f">Por hora (obrigatório)<input class="in" type="number" id="vh" min="1" step="0.01" value="${pro.valor_hora ?? ''}"></label>
           <label class="f">Plantão de 12h (opcional)<input class="in" type="number" id="v12" min="1" step="0.01" value="${pro.valor_12h ?? ''}"></label>
@@ -215,6 +218,14 @@
           <button class="btn btn-ghost btn-sm" id="salvaCpf">Salvar CPF</button></div>
       </div></div>
       <div class="row"><button class="btn" id="salva">Salvar perfil</button>${pro.publicado ? '<button class="btn btn-ghost" id="pub">Tirar do catálogo</button>' : '<button class="btn btn-green" id="pub">Salvar e publicar no catálogo</button>'}</div>`;
+    const linkConvite = location.origin + '/profissional.html';
+    const textoConvite = `Oi! Estou no Saúde Pra Você, um app onde enfermeiros, técnicos de enfermagem, cuidadores e acompanhantes hospitalares montam o perfil, definem o próprio valor e recebem pedidos de famílias da região, com pagamento pelo app. O cadastro é grátis: ${linkConvite}`;
+    $('#compWa').onclick = () => window.open(DC.wa('', textoConvite), '_blank', 'noopener');
+    $('#compOutro').onclick = async () => {
+      try { if (navigator.share) { await navigator.share({ title: 'Saúde Pra Você', text: textoConvite.replace(' ' + linkConvite, ''), url: linkConvite }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+      try { await navigator.clipboard.writeText(textoConvite); DC.toast('Mensagem com o link copiada. É só colar e enviar.'); } catch (e) { DC.toast(linkConvite); }
+    };
+    DC.fotoEditor($('#fotoBox'), { pro: true, url: pro.avatar_url || me.foto_url, texto: 'Aparece no catálogo e nos pedidos. Uma foto do rosto (pode ser selfie) passa confiança para as famílias.', depois: (u) => { pro.avatar_url = u; const a = $('#meuAv'); if (a) a.innerHTML = DC.av(me.nome, u); } });
     let esp = pro.especialidade;
     const corenVis = () => $('#corenBox').classList.toggle('hide', !(DC.ESPEC[esp] && DC.ESPEC[esp].coren));
     $$('#es [data-e]').forEach((b) => (b.onclick = () => { esp = b.dataset.e; $$('#es [data-e]').forEach((x) => x.classList.toggle('on', x === b)); corenVis(); }));

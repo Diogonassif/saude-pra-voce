@@ -11,7 +11,7 @@
     const L = (data || []).slice(0, 6);
     if (!L.length) return;
     box.closest('section').classList.remove('hide');
-    box.innerHTML = L.map((p) => `<div class="card pc"><div class="head-pro"><span class="av lg">${esc(p.nome.split(' ').map((x) => x[0]).join('').slice(0, 2))}</span><div class="grow"><b style="font-size:17px">${esc(p.nome)}</b> ${p.verificado ? '<span class="selo">✓ Selo verificado</span>' : ''}
+    box.innerHTML = L.map((p) => `<div class="card pc"><div class="head-pro"><span class="av lg">${p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover">` : esc(p.nome.split(' ').map((x) => x[0]).join('').slice(0, 2))}</span><div class="grow"><b style="font-size:17px">${esc(p.nome)}</b> ${p.verificado ? '<span class="selo">✓ Selo verificado</span>' : ''}
       <div class="small mute">${esc(ESP[p.especialidade] || '')}${p.experiencia_anos ? ' · ' + p.experiencia_anos + ' anos' : ''}</div><div class="small mute">${esc(p.cidade || '')}</div></div></div>
       <div class="pr"><div><span class="tiny mute">Por hora</span><b>${brl(p.preco_hora)}</b></div><div class="${p.preco_12h ? '' : 'na'}"><span class="tiny mute">Plantão 12h</span><b>${p.preco_12h ? brl(p.preco_12h) : '—'}</b></div><div class="${p.preco_24h ? '' : 'na'}"><span class="tiny mute">Plantão 24h</span><b>${p.preco_24h ? brl(p.preco_24h) : '—'}</b></div></div></div>`).join('');
   });

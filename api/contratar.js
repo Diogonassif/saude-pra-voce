@@ -19,14 +19,14 @@ async function carregar(id) {
 }
 
 // valida e monta os dados de um pedido (usado ao criar e ao editar)
-async function planejarPedido(b, clienteId) {
+async function planejarPedido(b, clienteId, baseFixa) {
   if (!isUuid(b.pro_id)) throw fail(400, 'Escolha um profissional');
   const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,coren_status,valor_hora,valor_12h,valor_24h`);
   if (!pro || !pro.publicado) throw fail(404, 'Este profissional não está disponível agora');
   if (['tecnico', 'enfermeiro'].includes(pro.especialidade) && pro.coren_status !== 'ativo') throw fail(409, 'O COREN deste profissional ainda não foi conferido pela central');
   if (pro.user_id === clienteId) throw fail(400, 'Você não pode contratar a si mesmo');
   const modalidade = MODAL[b.modalidade] ? b.modalidade : 'hora';
-  const base = +pro[MODAL[modalidade].campo];
+  const base = baseFixa > 0 ? +baseFixa : +pro[MODAL[modalidade].campo];
   if (!(base > 0)) throw fail(400, 'Este profissional não atende nessa modalidade');
   const inicio = dataOk(b.inicio), fim = dataOk(b.fim) || inicio;
   if (!inicio) throw fail(400, 'Informe a data de início');
@@ -82,7 +82,8 @@ async function replanejar(c, inicio, fim, horario) {
   if (fim < inicio) throw fail(400, 'O fim precisa ser depois do início');
   if ((new Date(fim) - new Date(inicio)) / 864e5 > 180) throw fail(400, 'No máximo 6 meses por vez');
   const pro = await one(`pros?user_id=eq.${c.pro_id}&select=user_id,nome,${MODAL[c.modalidade].campo}`);
-  const base = pro ? +pro[MODAL[c.modalidade].campo] : 0;
+  const neg = await one(`contratacao_split?contratacao_id=eq.${c.id}&select=base_negociada`);
+  const base = neg && +neg.base_negociada > 0 ? +neg.base_negociada : pro ? +pro[MODAL[c.modalidade].campo] : 0;
   if (!(base > 0)) throw fail(409, 'O profissional não tem mais valor para esta modalidade');
   const dias = diasDoPeriodo(inicio, fim, c.dias_semana && c.dias_semana.length ? c.dias_semana : [0, 1, 2, 3, 4, 5, 6]);
   if (!dias.length) throw fail(400, 'Nenhum dia do novo período cai nos dias da semana do pedido');
@@ -189,18 +190,22 @@ export default handler(async (req, res) => {
   if (b.acao === 'editar') {
     if (!(ehCli || me.isAdmin)) throw fail(403, 'Só o contratante edita o pedido');
     if (!['solicitado', 'aceito'].includes(c.status)) throw fail(409, 'Depois do pagamento, fale com a central para mudar o atendimento');
-    const { row, t, v } = await planejarPedido(Object.assign({}, b, { pro_id: c.pro_id }), c.cliente_id);
+    const neg = await one(`contratacao_split?contratacao_id=eq.${c.id}&select=base_negociada`);
+    const mesmaModal = (MODAL[b.modalidade] ? b.modalidade : 'hora') === c.modalidade;
+    const { row, t, v } = await planejarPedido(Object.assign({}, b, { pro_id: c.pro_id }), c.cliente_id, mesmaModal && neg ? neg.base_negociada : null);
     const mudou = [...['modalidade', 'inicio', 'fim'].filter((k) => String(row[k]) !== String(c[k])), ...['horas_dia', 'quantidade'].filter((k) => +row[k] !== +c[k]),
       ...((row.horario || '') !== (c.horario ? c.horario.slice(0, 5) : '') ? ['horario'] : []),
       ...(JSON.stringify([...row.dias_semana].sort()) !== JSON.stringify([...(c.dias_semana || [])].sort()) ? ['dias_semana'] : [])];
     const mudouAgenda = mudou.length > 0;
     const volta = mudouAgenda && c.status === 'aceito';
     delete row.pro_id; delete row.pro_nome; delete row.especialidade;
-    await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: Object.assign(row, { proposta: null, updated_at: agora() }, volta ? { status: 'solicitado', aceito_em: null } : {}) });
+    await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: Object.assign(row, { proposta: null, proposta_valor: null, updated_at: agora() }, volta ? { status: 'solicitado', aceito_em: null } : {}) });
     await Promise.all([
       admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: v.unitPro, total: v.pro } }),
       admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: v.unitCli, total: v.cliente } }),
-      admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: v.pro, debcare: v.debcare, mind: v.mind } }),
+      admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: v.pro, debcare: v.debcare, mind: v.mind, proposta_base: null, base_negociada: mesmaModal && neg ? neg.base_negociada : null } }),
+      admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: null } }),
+      admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: null } }),
     ]);
     sendEmail({ to: await emailDe(c.pro_id), subject: `Pedido #${c.codigo} alterado pelo contratante`,
       html: shell('Pedido alterado', `<p>${escH(c.cliente_nome)} alterou o pedido #${c.codigo}${mudouAgenda ? ' (datas ou horários)' : ''}. Você recebe <b>${brl(v.pro)}</b>.${volta ? ' Confira e aceite de novo.' : ''}</p>`,
@@ -248,6 +253,78 @@ export default handler(async (req, res) => {
     sendEmail({ to: await emailDe(c.pro_id), subject: `Nova data aceita · #${c.codigo}`,
       html: shell('Nova data aceita', `<p>${escH(c.cliente_nome)} aceitou a nova data. ${p.por === 'pro' ? 'Agora é só aguardar o pagamento.' : 'Confira e responda ao pedido.'}</p>`, { url: url + '/pro.html#pedidos', label: 'Ver pedido' }) });
     return send(res, 200, { ok: true, status: p.por === 'pro' ? 'aceito' : 'solicitado', total_cliente: plano.v.cliente });
+  }
+
+
+  // ------------------------------------------------------------ negociação de valor no chat (antes do pagamento)
+  // o contratante propõe quanto quer pagar no total; o profissional propõe quanto quer receber no total.
+  // a outra parte aceita ou recusa (e pode mandar outra proposta). Ao aceitar, os valores do pedido são refeitos.
+  if (b.acao === 'propor_valor') {
+    if (!(ehCli || ehPro)) throw fail(403, 'Só o contratante ou o profissional negociam o valor');
+    if (!['solicitado', 'aceito'].includes(c.status)) throw fail(409, 'Depois do pagamento o valor não muda mais');
+    const valor = money(+String(b.valor ?? '').replace(',', '.'));
+    if (!(valor > 0)) throw fail(400, 'Informe um valor maior que zero');
+    const t = await taxas();
+    const fator = 1 + (t.debcare + t.mind) / 100;
+    const q = +c.quantidade;
+    const base = money((ehCli ? valor / fator : valor) / q);
+    if (!(base >= 0.01)) throw fail(400, 'Valor muito baixo para este atendimento');
+    const atual = await one(`contratacao_split?contratacao_id=eq.${c.id}&select=pro`);
+    if (atual && base * q > +atual.pro * 5) throw fail(400, 'Valor muito acima do atual: confira os números');
+    const v = calcular(base, q, t);
+    await Promise.all([
+      admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { proposta_valor: { por: ehCli ? 'cliente' : 'pro', em: agora(), nota: txt(b.nota, 300) }, updated_at: agora() } }),
+      admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: v.cliente } }),
+      admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: v.pro } }),
+      admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_base: base } }),
+    ]);
+    await admin('mensagens', { method: 'POST', body: { contratacao_id: c.id, autor: me.id, tipo: 'proposta',
+      texto: `💰 ${ehCli ? 'O contratante' : 'O profissional'} propôs um novo valor para o atendimento.${txt(b.nota, 300) ? ' "' + txt(b.nota, 300) + '"' : ''}` } });
+    const outro = ehCli ? c.pro_id : c.cliente_id;
+    sendEmail({ to: await emailDe(outro), subject: `Nova proposta de valor · #${c.codigo}`,
+      html: shell('Proposta de valor', `<p>${escH(ehCli ? c.cliente_nome : c.pro_nome)} propôs um novo valor: ${ehCli ? `você receberia <b>${brl(v.pro)}</b>` : `o total ficaria <b>${brl(v.cliente)}</b>`}.</p>`,
+        { url: url + (ehCli ? '/pro.html#pedidos' : '/cliente.html#contratacoes'), label: 'Aceitar ou recusar' }) });
+    return send(res, 200, { ok: true, total_cliente: ehCli ? v.cliente : undefined, total_pro: ehPro ? v.pro : undefined });
+  }
+
+  if (b.acao === 'aceitar_valor' || b.acao === 'recusar_valor') {
+    const p = c.proposta_valor;
+    if (!p) throw fail(409, 'Não há proposta de valor em aberto');
+    const respondePro = p.por === 'cliente';
+    if (respondePro ? !ehPro : !ehCli) throw fail(403, `Quem responde é ${respondePro ? 'o profissional' : 'o contratante'}`);
+    const limpar = () => Promise.all([
+      admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: null } }),
+      admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: null } }),
+    ]);
+    const outro = ehCli ? c.pro_id : c.cliente_id;
+    if (b.acao === 'recusar_valor') {
+      await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { proposta_valor: null, updated_at: agora() } });
+      await admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_base: null } });
+      await limpar();
+      await admin('mensagens', { method: 'POST', body: { contratacao_id: c.id, autor: me.id, tipo: 'recusada', texto: '❌ Proposta de valor recusada. O valor anterior continua valendo.' } });
+      sendEmail({ to: await emailDe(outro), subject: `Proposta de valor recusada · #${c.codigo}`, html: shell('Proposta recusada', '<p>A proposta de valor não foi aceita. Vocês podem continuar conversando pelo app.</p>') });
+      return send(res, 200, { ok: true });
+    }
+    if (!['solicitado', 'aceito'].includes(c.status)) throw fail(409, 'Depois do pagamento o valor não muda mais');
+    const sp = await one(`contratacao_split?contratacao_id=eq.${c.id}&select=proposta_base`);
+    if (!sp || !(+sp.proposta_base > 0)) throw fail(409, 'Proposta não encontrada');
+    const t = await taxas();
+    const v = calcular(+sp.proposta_base, +c.quantidade, t);
+    // quem aceita (ou quem propôs) sendo o profissional, o pedido fica aceito e pronto para pagar
+    const body = { proposta_valor: null, updated_at: agora() };
+    if (c.status === 'solicitado') { body.status = 'aceito'; body.aceito_em = agora(); }
+    await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body });
+    await Promise.all([
+      admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: v.unitPro, total: v.pro, proposta_total: null } }),
+      admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: v.unitCli, total: v.cliente, proposta_total: null } }),
+      admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: v.pro, debcare: v.debcare, mind: v.mind, proposta_base: null, base_negociada: +sp.proposta_base } }),
+    ]);
+    await admin('mensagens', { method: 'POST', body: { contratacao_id: c.id, autor: me.id, tipo: 'aceita',
+      texto: `✅ Proposta de valor aceita. ${body.status === 'aceito' || c.status === 'aceito' ? 'O pedido está aceito e pronto para o pagamento.' : ''}` } });
+    sendEmail({ to: await emailDe(outro), subject: `Proposta de valor aceita · #${c.codigo}`,
+      html: shell('Valor combinado', `<p>A proposta de valor foi aceita. ${ehPro ? `Novo total: <b>${brl(v.cliente)}</b>. Pague pelo app para confirmar.` : `Você recebe <b>${brl(v.pro)}</b>. Agora é aguardar o pagamento.`}</p>`,
+        { url: url + (ehPro ? '/cliente.html#contratacoes' : '/pro.html#pedidos'), label: 'Ver pedido' }) });
+    return send(res, 200, { ok: true, status: 'aceito', total_cliente: ehCli ? v.cliente : undefined, total_pro: ehPro ? v.pro : undefined });
   }
 
   // ------------------------------------------------------------ central recomenda outro profissional

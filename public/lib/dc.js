@@ -11,7 +11,54 @@
   DC.dataCurta = (s) => DC.data(s).slice(0, 5);
   DC.hoje = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   DC.ini = (n) => String(n || '?').trim().split(/\s+/).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
-  DC.av = (nome, url, cls) => `<span class="av ${cls || ''}">${url ? `<img src="${DC.esc(url)}" alt="">` : DC.esc(DC.ini(nome))}</span>`;
+  // avatar: foto quando existe; se a imagem não carregar, volta para as iniciais
+  DC.av = (nome, url, cls) => `<span class="av ${cls || ''}">${url ? `<img src="${DC.esc(url)}" alt="" loading="lazy" data-i="${DC.esc(DC.ini(nome))}" onerror="this.parentNode.textContent=this.dataset.i">` : DC.esc(DC.ini(nome))}</span>`;
+  // foto de perfil pública de cada usuário (fotos/<id>.jpg)
+  DC.foto = (uid, v) => (uid ? `${DC.url}/storage/v1/object/public/fotos/${uid}.jpg${v ? '?v=' + v : ''}` : '');
+
+  // recorta no centro, reduz para 480×480 e devolve um JPEG
+  DC.prepararFoto = (file) => new Promise((ok, erro) => {
+    if (!file || !/^image\//.test(file.type)) return erro(new Error('Escolha uma imagem'));
+    const img = new Image(); const u = URL.createObjectURL(file);
+    img.onload = () => {
+      const lado = Math.min(img.naturalWidth, img.naturalHeight), T = 480;
+      const cv = document.createElement('canvas'); cv.width = T; cv.height = T;
+      cv.getContext('2d').drawImage(img, (img.naturalWidth - lado) / 2, (img.naturalHeight - lado) / 2, lado, lado, 0, 0, T, T);
+      URL.revokeObjectURL(u);
+      cv.toBlob((b) => (b ? ok(b) : erro(new Error('Não deu para ler a imagem'))), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); erro(new Error('Não deu para abrir essa imagem')); };
+    img.src = u;
+  });
+
+  // cartão "Sua foto": tirar selfie (câmera frontal no celular) ou escolher da galeria
+  DC.fotoEditor = (el, opts) => {
+    const me = DC.me; const o = opts || {};
+    const desenha = (url) => {
+      el.innerHTML = `<div class="card col"><h2>Sua foto</h2><p class="small mute">${o.texto || 'Uma foto do rosto passa confiança. Pode ser uma selfie.'}</p>
+        <div class="av-edit">${DC.av(me.nome, url, 'xl')}<div class="col" style="gap:8px">
+          <label class="btn btn-sm">📷 Tirar selfie<input type="file" accept="image/*" capture="user" hidden data-foto></label>
+          <label class="btn btn-sm btn-ghost">Escolher da galeria<input type="file" accept="image/*" hidden data-foto></label>
+          ${url ? '<button class="btn btn-sm btn-ghost" data-tirar style="color:var(--red)">Remover foto</button>' : ''}</div></div></div>`;
+      el.querySelectorAll('[data-foto]').forEach((inp) => (inp.onchange = () => DC.busy(inp.parentNode, async () => {
+        const blob = await DC.prepararFoto(inp.files[0]);
+        const { error } = await DC.sb.storage.from('fotos').upload(me.id + '.jpg', blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '60' });
+        if (error) throw error;
+        const nova = DC.foto(me.id, Date.now());
+        await DC.sb.from('profiles').update({ foto_url: nova }).eq('id', me.id);
+        if (o.pro) await DC.sb.from('pros').update({ avatar_url: nova }).eq('user_id', me.id);
+        me.foto_url = nova; DC.toast('Foto salva'); desenha(nova); if (o.depois) o.depois(nova);
+      })));
+      const t = el.querySelector('[data-tirar]');
+      if (t) t.onclick = () => DC.busy(t, async () => {
+        await DC.sb.storage.from('fotos').remove([me.id + '.jpg']);
+        await DC.sb.from('profiles').update({ foto_url: null }).eq('id', me.id);
+        if (o.pro) await DC.sb.from('pros').update({ avatar_url: null }).eq('user_id', me.id);
+        me.foto_url = null; DC.toast('Foto removida'); desenha(null); if (o.depois) o.depois(null);
+      });
+    };
+    desenha(o.url !== undefined ? o.url : me.foto_url);
+  };
   DC.norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
   // telefone: "(16) 99999-0000" → "5516999990000"
@@ -136,7 +183,7 @@
       <a class="brand" href="${DC.home(me.role, me)}">${DC.marca(aud)}</a>
       <nav class="nav" aria-label="Principal">${abas.map(([k, l]) => `<a href="#${k}" data-tab="${k}">${DC.esc(l)}</a>`).join('')}</nav>
       <div class="who">${me.isMind ? `<a class="btn btn-sm ${aud === 'Mind' ? '' : 'btn-ghost'}" href="/mind.html" title="Painel Mind: ver como qualquer perfil">Mind</a>` : me.isAdmin && aud !== 'Central' ? '<a class="btn btn-sm btn-ghost" href="/admin.html">Central</a>' : ''}
-        <button class="btn btn-sm btn-ghost" id="sair" title="${DC.esc(DC.telBonito(me.telefone))}">Sair</button>${DC.av(me.nome)}</div></div>`;
+        <button class="btn btn-sm btn-ghost" id="sair" title="${DC.esc(DC.telBonito(me.telefone))}">Sair</button><span id="meuAv">${DC.av(me.nome, me.foto_url)}</span></div></div>`;
     DC.$('#sair').onclick = DC.sair;
     // gestor da Mind: troca de perfil com um toque, sem novo login (a mesma conta abre todas as áreas)
     if (me.isMind && !DC.$('#trocaPerfil')) {

@@ -186,7 +186,7 @@
     const L = data || [];
     const tot = (c) => { const v = Array.isArray(c.contratacao_cliente) ? c.contratacao_cliente[0] : c.contratacao_cliente; return v ? brl(v.total, 2) : '—'; };
     const linha = (c) => `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
-      ${DC.av(c.pro_nome)}<span class="grow"><b>${esc(c.pro_nome)}</b> <span class="small mute">· ${esc(DC.espec(c.especialidade))}</span><br><span class="small mute">${DC.periodo(c)} · ${esc(c.paciente_nome)} · ${esc(DC.LOCAL[c.local_tipo])}</span></span>
+      ${DC.av(c.pro_nome, DC.foto(c.pro_id))}<span class="grow"><b>${esc(c.pro_nome)}</b> <span class="small mute">· ${esc(DC.espec(c.especialidade))}</span><br><span class="small mute">${DC.periodo(c)} · ${esc(c.paciente_nome)} · ${esc(DC.LOCAL[c.local_tipo])}</span></span>
       <span style="text-align:right">${DC.stTag(c.status)}<br><b class="small">${tot(c)}</b></span></button>`;
     const bloco = (tit, F, vazio, extra) => { const X = L.filter(F); return X.length || vazio ? `<div class="card col ${extra || ''}"><h2>${tit}</h2>${X.length ? `<div class="list">${X.map(linha).join('')}</div>` : `<p class="small mute">${vazio}</p>`}</div>` : ''; };
     app.innerHTML = `<div class="head"><div><h1>Minhas contratações</h1><p>Acompanhe pedidos, pague pelo app e converse com o profissional.</p></div><a class="btn" href="#catalogo">Contratar profissional</a></div>
@@ -266,8 +266,10 @@
         <label class="f">Celular<input class="in" value="${esc(DC.telBonito(p.telefone))}" disabled></label>
         <label class="f">E-mail (opcional)<small>para entrar também com o e-mail e receber avisos</small><input class="in" id="em" type="email" value="${esc(p.email || '')}"></label>
         <div class="row"><button class="btn" id="sv">Salvar</button><button class="btn btn-ghost" id="sn">Trocar senha</button></div></div>
+      <div id="fotoBox" style="max-width:640px"></div>
       <div data-instalar="cliente" style="max-width:640px"></div>`;
     if (window.desenhaInstalar) window.desenhaInstalar();
+    DC.fotoEditor($('#fotoBox'), { url: p.foto_url || null, texto: 'Os profissionais veem sua foto nos pedidos. Pode ser uma selfie.', depois: (u) => { const a = $('#meuAv'); if (a) a.innerHTML = DC.av(me.nome, u); } });
     $('#sv').onclick = () => DC.busy($('#sv'), async () => {
       const em = $('#em').value.trim();
       if (em && !/^\S+@\S+\.\S+$/.test(em)) throw new Error('E-mail inválido');

@@ -12,6 +12,7 @@ export default handler(async (req, res) => {
   if (!c || c.cliente_id !== me.id) throw fail(403, 'Só o contratante paga');
   if (c.status === 'confirmado' || c.status === 'concluido') throw fail(409, 'Este atendimento já está pago');
   if (c.status !== 'aceito') throw fail(409, 'Aguarde o profissional aceitar o pedido');
+  if (c.proposta_valor) throw fail(409, 'Há uma proposta de valor em aberto no chat. Responda (ou aguarde a resposta) antes de pagar.');
   const [cli, sp] = await Promise.all([
     one(`contratacao_cliente?contratacao_id=eq.${c.id}&select=total`),
     one(`contratacao_split?contratacao_id=eq.${c.id}&select=pro,debcare,mind`),
