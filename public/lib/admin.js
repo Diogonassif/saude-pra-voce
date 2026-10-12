@@ -13,13 +13,14 @@
 
   async function dinheiro() {
     const [pg, rp] = await Promise.all([
-      sb.from('pagamentos').select('valor_total,taxa,debcare,mind,status,updated_at').eq('status', 'approved'),
+      sb.from('pagamentos').select('id,valor_total,taxa,debcare,mind,status,mp_payment_id,updated_at,contratacoes(id,codigo,cliente_nome,pro_nome,especialidade,modalidade,inicio,fim)').eq('status', 'approved').order('updated_at', { ascending: false }),
       sb.from('repasses_mind').select('*').order('pago_em', { ascending: false }),
     ]);
     const P = pg.data || [], R = rp.data || [];
     const meses = {};
-    P.forEach((p) => { const k = refDe(p.updated_at); const x = meses[k] ||= { total: 0, debcare: 0, mind: 0, pro: 0, n: 0, repassado: 0 }; x.total += +p.valor_total; x.debcare += +p.debcare; x.mind += +p.mind; x.pro += +p.valor_total - +p.taxa; x.n++; });
-    R.forEach((r) => { const x = meses[r.referencia] ||= { total: 0, debcare: 0, mind: 0, pro: 0, n: 0, repassado: 0 }; x.repassado += +r.valor; });
+    const novo = () => ({ total: 0, debcare: 0, mind: 0, pro: 0, n: 0, repassado: 0, P: [], R: [] });
+    P.forEach((p) => { const k = refDe(p.updated_at); const x = meses[k] ||= novo(); x.total += +p.valor_total; x.debcare += +p.debcare; x.mind += +p.mind; x.pro += +p.valor_total - +p.taxa; x.n++; x.P.push(p); });
+    R.forEach((r) => { const x = meses[r.referencia] ||= novo(); x.repassado += +r.valor; x.R.push(r); });
     const devido = Object.values(meses).reduce((s, x) => s + x.mind - x.repassado, 0);
     return { meses, R, devido: Math.round(devido * 100) / 100 };
   }
@@ -317,8 +318,11 @@
       <button class="btn" id="rep">Registrar repasse à Mind</button></div>
       ${alertaMind(devido, false) || '<div class="banner ok">Nada a repassar à Mind agora.</div>'}
       <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>Mês</th><th>Pagamentos</th><th>Contratantes pagaram</th><th>Profissionais</th><th>Saúde Pra Você</th><th>Mind (devido)</th><th>Repassado</th><th>A repassar</th></tr></thead><tbody>
-        ${K.map((k) => { const x = meses[k], f = x.mind - x.repassado; return `<tr><td>${mesNome(k)}</td><td>${x.n}</td><td>${brl(x.total, 2)}</td><td>${brl(x.pro, 2)}</td><td>${brl(x.debcare, 2)}</td><td>${brl(x.mind, 2)}</td><td>${brl(x.repassado, 2)}</td><td>${f > 0.009 ? `<b style="color:var(--red)">${brl(f, 2)}</b>` : '<span class="tag t-green">EM DIA</span>'}</td></tr>`; }).join('') || '<tr><td colspan="8" class="mute">Nenhum pagamento aprovado ainda.</td></tr>'}</tbody></table></div></div>
+        ${K.map((k) => { const x = meses[k], f = x.mind - x.repassado; return `<tr class="go" data-mes="${k}" title="Toque para ver os pagamentos"><td><span class="seta" id="s-${k}">▸</span> ${mesNome(k)}</td><td>${x.n}</td><td>${brl(x.total, 2)}</td><td>${brl(x.pro, 2)}</td><td>${brl(x.debcare, 2)}</td><td>${brl(x.mind, 2)}</td><td>${brl(x.repassado, 2)}</td><td>${f > 0.009 ? `<b style="color:var(--red)">${brl(f, 2)}</b>` : '<span class="tag t-green">EM DIA</span>'}</td></tr>
+          <tr class="hide det-mes" id="d-${k}"><td colspan="8">${detalheMes(x)}</td></tr>`; }).join('') || '<tr><td colspan="8" class="mute">Nenhum pagamento aprovado ainda.</td></tr>'}</tbody></table></div><p class="tiny mute" style="margin-top:8px">Toque num mês para ver cada pagamento.</p></div>
       <div class="card col"><h2>Repasses feitos à Mind</h2>${R.length ? `<div class="list">${R.map((r) => `<div class="li small"><span class="grow"><b>${brl(r.valor, 2)}</b> · referência ${esc(r.referencia.split('-').reverse().join('/'))}${r.nota ? ' · ' + esc(r.nota) : ''}</span><span class="mute">${DC.data(r.pago_em)}</span></div>`).join('')}</div>` : '<p class="small mute">Nenhum repasse registrado.</p>'}</div>`;
+    $$('[data-mes]').forEach((tr) => (tr.onclick = () => { const k = tr.dataset.mes; const d = $('#d-' + k); d.classList.toggle('hide'); $('#s-' + k).textContent = d.classList.contains('hide') ? '▸' : '▾'; }));
+    $$('[data-pc]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); DC.abrirContratacao(b.dataset.pc, 'admin', financeiro); }));
     $('#rep').onclick = () => {
       const pend = K.filter((k) => meses[k].mind - meses[k].repassado > 0.009);
       const k0 = pend[pend.length - 1] || mesAtual;
@@ -335,6 +339,15 @@
         if (error) throw error; m.close(); DC.toast('Repasse registrado. O alerta no MindSaaS é atualizado.'); financeiro();
       });
     };
+  }
+
+  function detalheMes(x) {
+    const dh = (iso) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+    return `<div class="tbl-box"><table class="tbl small"><thead><tr><th>Data</th><th>Atendimento</th><th>Contratante pagou</th><th>Profissional</th><th>Saúde Pra Você</th><th>Mind</th></tr></thead><tbody>
+      ${x.P.map((p) => { const c = p.contratacoes || {}; return `<tr><td>${dh(p.updated_at)}</td><td><button class="link" data-pc="${c.id}">#${c.codigo ?? ''}</button> ${esc(c.cliente_nome || '')} → ${esc(c.pro_nome || '')}<br><span class="tiny mute">${esc(DC.espec(c.especialidade))}${c.modalidade ? ' · ' + esc(DC.MODAL[c.modalidade].nome) : ''}${c.inicio ? ' · ' + DC.periodo(c) : ''}${p.mp_payment_id ? ' · MP ' + esc(p.mp_payment_id) : ''}</span></td>
+        <td>${brl(p.valor_total, 2)}</td><td>${brl(+p.valor_total - +p.taxa, 2)}</td><td>${brl(p.debcare, 2)}</td><td>${brl(p.mind, 2)}</td></tr>`; }).join('') || '<tr><td colspan="6" class="mute">Nenhum pagamento neste mês.</td></tr>'}
+      ${x.R.map((r) => `<tr style="background:#F1FAF6"><td>${DC.data(r.pago_em)}</td><td colspan="4">Repasse à Mind registrado${r.nota ? ' · ' + esc(r.nota) : ''}</td><td><b style="color:var(--green)">− ${brl(r.valor, 2)}</b></td></tr>`).join('')}
+    </tbody></table></div>`;
   }
 
   // ------------------------------------------------------------------ taxas e central
