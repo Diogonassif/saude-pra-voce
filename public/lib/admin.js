@@ -233,6 +233,8 @@
 
   // ------------------------------------------------------------------ profissionais
   async function profissionais() {
+    // o que falta para o profissional aparecer no catálogo (mesmas regras da função catalogo do banco)
+    const falta = (p) => [!p.especialidade && 'especialidade', !p.valor_hora && 'valor por hora', DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren && p.coren_status !== 'ativo' && 'COREN conferido'].filter(Boolean);
     const [{ data, error }, pv, pf] = await Promise.all([sb.from('pros').select('*').order('created_at', { ascending: false }), sb.from('pro_privado').select('*'), sb.from('profiles').select('id,telefone').eq('role', 'pro')]);
     if (error) throw error;
     const PV = Object.fromEntries((pv.data || []).map((x) => [x.user_id, x]));
@@ -254,14 +256,14 @@
         <td><b>${esc(p.nome)}</b><br><span class="small mute">${esc(DC.espec(p.especialidade))}${p.cidade ? ' · ' + esc(p.cidade) : ''} · ${esc(DC.telBonito(TEL[p.user_id]))}</span></td>
         <td class="small">${p.valor_hora ? brl(p.valor_hora, 2) + '/h' : '—'}${p.valor_12h ? '<br>' + brl(p.valor_12h, 2) + '/12h' : ''}${p.valor_24h ? '<br>' + brl(p.valor_24h, 2) + '/24h' : ''}</td>
         <td class="small">${corenCel(p)}</td><td>${docs(p.user_id)}</td>
-        <td><label class="check"><input type="checkbox" data-pub="${p.user_id}" ${p.publicado ? 'checked' : ''}>Publicado</label></td>
+        <td><label class="check"><input type="checkbox" data-pub="${p.user_id}" ${p.publicado ? 'checked' : ''}>Publicado</label>${falta(p).length ? `<br><span class="tag t-amber" title="Só aparece no catálogo quando estiver completo">Falta: ${esc(falta(p).join(', '))}</span>` : p.publicado ? '<br><span class="tag t-green">No catálogo</span>' : ''}</td>
         <td><label class="check"><input type="checkbox" data-ver="${p.user_id}" ${p.verificado ? 'checked' : ''}>Selo</label></td>
         <td><button class="btn btn-sm" data-ver="${p.user_id}">Ver</button> <button class="btn btn-sm btn-ghost" data-senha="${p.user_id}">Nova senha</button></td></tr>`).join('') || '<tr><td colspan="7" class="mute">Nenhum profissional.</td></tr>';
       const abre = (id) => detalhePro(data.find((x) => x.user_id === id), PV[id] || {}, TEL[id]);
       $$('[data-prow]').forEach((r) => (r.ondblclick = (e) => { if (!e.target.closest('button,input,label,a')) abre(r.dataset.prow); }));
       $$('[data-ver]').forEach((b) => (b.onclick = () => abre(b.dataset.ver)));
       $$('[data-ver]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ verificado: c.checked }).eq('user_id', c.dataset.ver); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'Selo verificado concedido' : 'Selo removido'); }));
-      $$('[data-pub]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ publicado: c.checked }).eq('user_id', c.dataset.pub); if (e) { DC.erro(e); c.checked = !c.checked; } else DC.toast(c.checked ? 'No catálogo' : 'Fora do catálogo'); }));
+      $$('[data-pub]').forEach((c) => (c.onchange = async () => { const { error: e } = await sb.from('pros').update({ publicado: c.checked }).eq('user_id', c.dataset.pub); if (e) { DC.erro(e); c.checked = !c.checked; return; } const pp = data.find((x) => x.user_id === c.dataset.pub); const f = pp ? falta(pp) : []; DC.toast(!c.checked ? 'Fora do catálogo' : f.length ? 'Marcado como publicado, mas só aparece no catálogo quando completar: ' + f.join(', ') : 'No catálogo', c.checked && f.length > 0); }));
       $$('[data-doc]').forEach((b) => (b.onclick = async () => { const { data: u, error: e } = await sb.storage.from('docs').createSignedUrl(b.dataset.doc, 300); if (e) return DC.erro(e); window.open(u.signedUrl, '_blank', 'noopener'); }));
       $$('[data-senha]').forEach((b) => (b.onclick = () => novaSenha(b, b.dataset.senha)));
       $$('[data-cofen]').forEach((b) => (b.onclick = () => { try { navigator.clipboard.writeText(b.dataset.cofen); DC.toast('Número do COREN copiado. Cole na consulta do Cofen.'); } catch (e) { /* sem área de transferência */ } window.open('https://sigen.cofen.gov.br/profissional/consultar', '_blank', 'noopener'); }));
