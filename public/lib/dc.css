@@ -253,3 +253,4 @@ tr.det-mes > td { background: #F7FAFA; padding: 10px 12px 16px; }
 
 .nav.so1 { visibility: hidden; }            /* uma aba só (Painel Mind): não precisa de menu */
 .nav.semdiv { border-left: 0; padding-left: 0; }
+@media (max-width: 520px) { .hide-m { display: none; } }

@@ -1,7 +1,7 @@
 // Contratações: criar pelo catálogo, indicação da central, aceitar, recusar, cancelar, concluir e avisos.
 // Toda conta de dinheiro é feita aqui (valor do profissional + 15% Saúde Pra Você + 10% Mind, somados por cima).
 import { send, readJson, who, admin, one, isUuid, money, brl, fail, handler, appUrl, sendEmail, shell, escH,
-  emailDe, emailCentral, MODAL, taxas, calcular, diasDoPeriodo } from './_lib.js';
+  emailDe, emailCentral, MODAL, taxas, calcular, diasDoPeriodo, partesMensais } from './_lib.js';
 
 const dataOk = (s) => (/^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) ? s : null);
 const horaOk = (s) => (/^\d{2}:\d{2}$/.test(String(s || '')) ? s : null);
@@ -9,7 +9,7 @@ const hoje = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
 const txt = (s, n) => String(s || '').trim().slice(0, n);
 const LOCAIS = ['residencia', 'hospital', 'clinica', 'outro'];
 const ESPEC = { enfermeiro: 'Enfermeiro(a)', tecnico: 'Técnico(a) de enfermagem', cuidador: 'Cuidador(a)', acompanhante: 'Acompanhante hospitalar' };
-const resumo = (c) => `${ESPEC[c.especialidade] || 'Atendimento'} · ${c.inicio.split('-').reverse().join('/')}${c.fim !== c.inicio ? ' a ' + c.fim.split('-').reverse().join('/') : ''}`;
+const resumo = (c) => `${c.tipo === 'fixo' ? 'Contrato fixo' + (c.empresa_nome ? ' (' + c.empresa_nome + ')' : '') + ' · ' : ''}${ESPEC[c.especialidade] || 'Atendimento'} · ${c.inicio.split('-').reverse().join('/')}${c.fim !== c.inicio ? ' a ' + c.fim.split('-').reverse().join('/') : ''}`;
 
 async function carregar(id) {
   if (!isUuid(id)) throw fail(400, 'Contratação inválida');
@@ -32,7 +32,12 @@ async function planejarPedido(b, clienteId, baseFixa) {
   if (!inicio) throw fail(400, 'Informe a data de início');
   if (inicio < hoje()) throw fail(400, 'A data de início já passou');
   if (fim < inicio) throw fail(400, 'O fim precisa ser depois do início');
-  if ((new Date(fim) - new Date(inicio)) / 864e5 > 180) throw fail(400, 'Contrate no máximo 6 meses por vez');
+  const tipo = b.tipo === 'fixo' ? 'fixo' : 'avulso';
+  if (tipo === 'avulso' && (new Date(fim) - new Date(inicio)) / 864e5 > 180) throw fail(400, 'Atendimento avulso vai até 6 meses. Para períodos maiores, escolha contrato fixo.');
+  if (tipo === 'fixo' && (new Date(fim) - new Date(inicio)) / 864e5 > 366) throw fail(400, 'Contrato fixo vai até 12 meses por vez');
+  const empresa = txt(b.empresa_nome, 120), cnpj = String(b.empresa_cnpj || '').replace(/\D/g, '');
+  if (tipo === 'fixo' && !empresa) throw fail(400, 'Informe o nome da clínica ou empresa do contrato');
+  if (cnpj && cnpj.length !== 14) throw fail(400, 'CNPJ inválido: são 14 números');
   const semana = Array.isArray(b.dias_semana) && b.dias_semana.length
     ? [...new Set(b.dias_semana.map(Number).filter((n) => n >= 0 && n <= 6))] : [0, 1, 2, 3, 4, 5, 6];
   const dias = diasDoPeriodo(inicio, fim, semana);
@@ -55,9 +60,22 @@ async function planejarPedido(b, clienteId, baseFixa) {
     local_tipo: LOCAIS.includes(b.local_tipo) ? b.local_tipo : 'residencia', endereco: txt(b.endereco, 300), cidade: txt(b.cidade, 80) || null,
     paciente_nome: txt(b.paciente_nome, 120), paciente_idade: idade >= 0 && idade <= 120 ? idade : null,
     cuidados: txt(b.cuidados, 3000), notas: txt(b.notas, 2000),
+    tipo, empresa_nome: tipo === 'fixo' ? empresa : null, empresa_cnpj: tipo === 'fixo' && cnpj ? cnpj : null,
   };
   const t = await taxas();
   return { row, t, v: calcular(base, quantidade, t) };
+}
+
+// contrato fixo: refaz as parcelas mensais (só antes de qualquer pagamento)
+async function gerarParcelas(id) {
+  const c = await one(`contratacoes?id=eq.${id}&select=*`);
+  if (!c) return;
+  const pagas = await admin(`contratacao_parcelas?contratacao_id=eq.${id}&status=eq.pago&select=n`);
+  if ((pagas || []).length) return;
+  await admin(`contratacao_parcelas?contratacao_id=eq.${id}`, { method: 'DELETE' });
+  if (c.tipo !== 'fixo') return;
+  const partes = partesMensais(c);
+  if (partes.length) await admin('contratacao_parcelas', { method: 'POST', body: partes.map((x) => Object.assign({ contratacao_id: id }, x)) });
 }
 
 // monta e grava uma contratação (usado pelo contratante no catálogo e pela central ao indicar)
@@ -71,6 +89,7 @@ async function criarContratacao(b, clienteId, origem, necessidadeId) {
     admin('contratacao_cliente', { method: 'POST', body: { contratacao_id: c.id, valor_unit: v.unitCli, total: v.cliente } }),
     admin('contratacao_split', { method: 'POST', body: { contratacao_id: c.id, taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: v.pro, debcare: v.debcare, mind: v.mind } }),
   ]);
+  if (c.tipo === 'fixo') await gerarParcelas(c.id);
   return { c, v };
 }
 
@@ -80,7 +99,7 @@ async function replanejar(c, inicio, fim, horario) {
   if (!inicio) throw fail(400, 'Informe a nova data de início');
   if (inicio < hoje()) throw fail(400, 'A nova data já passou');
   if (fim < inicio) throw fail(400, 'O fim precisa ser depois do início');
-  if ((new Date(fim) - new Date(inicio)) / 864e5 > 180) throw fail(400, 'No máximo 6 meses por vez');
+  if ((new Date(fim) - new Date(inicio)) / 864e5 > (c.tipo === 'fixo' ? 366 : 180)) throw fail(400, c.tipo === 'fixo' ? 'Contrato fixo vai até 12 meses' : 'No máximo 6 meses por vez');
   const pro = await one(`pros?user_id=eq.${c.pro_id}&select=user_id,nome,${MODAL[c.modalidade].campo}`);
   const neg = await one(`contratacao_split?contratacao_id=eq.${c.id}&select=base_negociada`);
   const base = neg && +neg.base_negociada > 0 ? +neg.base_negociada : pro ? +pro[MODAL[c.modalidade].campo] : 0;
@@ -122,6 +141,7 @@ export default handler(async (req, res) => {
     const { c, v } = await criarContratacao(Object.assign({
       paciente_nome: n.paciente_nome, paciente_idade: n.paciente_idade, cuidados: n.cuidados, local_tipo: n.local_tipo,
       endereco: n.endereco, cidade: n.cidade, inicio: n.inicio, fim: n.fim, horas_dia: n.horas_dia,
+      tipo: n.tipo, empresa_nome: n.empresa_nome,
     }, b), n.cliente_id, 'central', n.id);
     await admin(`necessidades?id=eq.${n.id}`, { method: 'PATCH', body: { status: 'em_busca', updated_at: agora(),
       endereco: n.endereco || c.endereco || null, cidade: n.cidade || c.cidade || null } });
@@ -192,7 +212,7 @@ export default handler(async (req, res) => {
     if (!['solicitado', 'aceito'].includes(c.status)) throw fail(409, 'Depois do pagamento, fale com a central para mudar o atendimento');
     const neg = await one(`contratacao_split?contratacao_id=eq.${c.id}&select=base_negociada`);
     const mesmaModal = (MODAL[b.modalidade] ? b.modalidade : 'hora') === c.modalidade;
-    const { row, t, v } = await planejarPedido(Object.assign({}, b, { pro_id: c.pro_id }), c.cliente_id, mesmaModal && neg ? neg.base_negociada : null);
+    const { row, t, v } = await planejarPedido(Object.assign({ tipo: c.tipo, empresa_nome: c.empresa_nome, empresa_cnpj: c.empresa_cnpj }, b, { pro_id: c.pro_id }), c.cliente_id, mesmaModal && neg ? neg.base_negociada : null);
     const mudou = [...['modalidade', 'inicio', 'fim'].filter((k) => String(row[k]) !== String(c[k])), ...['horas_dia', 'quantidade'].filter((k) => +row[k] !== +c[k]),
       ...((row.horario || '') !== (c.horario ? c.horario.slice(0, 5) : '') ? ['horario'] : []),
       ...(JSON.stringify([...row.dias_semana].sort()) !== JSON.stringify([...(c.dias_semana || [])].sort()) ? ['dias_semana'] : [])];
@@ -207,6 +227,7 @@ export default handler(async (req, res) => {
       admin(`contratacao_pro?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: null } }),
       admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { proposta_total: null } }),
     ]);
+    await gerarParcelas(c.id);
     sendEmail({ to: await emailDe(c.pro_id), subject: `Pedido #${c.codigo} alterado pelo contratante`,
       html: shell('Pedido alterado', `<p>${escH(c.cliente_nome)} alterou o pedido #${c.codigo}${mudouAgenda ? ' (datas ou horários)' : ''}. Você recebe <b>${brl(v.pro)}</b>.${volta ? ' Confira e aceite de novo.' : ''}</p>`,
         { url: url + '/pro.html#pedidos', label: 'Ver pedido' }) });
@@ -250,6 +271,7 @@ export default handler(async (req, res) => {
       admin(`contratacao_cliente?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { valor_unit: plano.v.unitCli, total: plano.v.cliente } }),
       admin(`contratacao_split?contratacao_id=eq.${c.id}`, { method: 'PATCH', body: { taxa_debcare_pct: plano.t.debcare, taxa_mind_pct: plano.t.mind, pro: plano.v.pro, debcare: plano.v.debcare, mind: plano.v.mind } }),
     ]);
+    await gerarParcelas(c.id);
     sendEmail({ to: await emailDe(c.pro_id), subject: `Nova data aceita · #${c.codigo}`,
       html: shell('Nova data aceita', `<p>${escH(c.cliente_nome)} aceitou a nova data. ${p.por === 'pro' ? 'Agora é só aguardar o pagamento.' : 'Confira e responda ao pedido.'}</p>`, { url: url + '/pro.html#pedidos', label: 'Ver pedido' }) });
     return send(res, 200, { ok: true, status: p.por === 'pro' ? 'aceito' : 'solicitado', total_cliente: plano.v.cliente });
@@ -336,6 +358,7 @@ export default handler(async (req, res) => {
       pro_id: b.pro_id, modalidade: c.modalidade, inicio: dataOk(b.inicio) || c.inicio, fim: dataOk(b.fim) || c.fim, horario: b.horario || c.horario,
       dias_semana: c.dias_semana, horas_dia: c.horas_dia, local_tipo: c.local_tipo, endereco: c.endereco, cidade: c.cidade,
       paciente_nome: c.paciente_nome, paciente_idade: c.paciente_idade, cuidados: c.cuidados, notas: c.notas,
+      tipo: c.tipo, empresa_nome: c.empresa_nome, empresa_cnpj: c.empresa_cnpj,
     }, c.cliente_id, 'central', c.necessidade_id);
     if (c.status !== 'recusado') await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'cancelado', motivo: `Substituído pela central pelo pedido #${nova.codigo}`, updated_at: agora() } });
     if (c.necessidade_id) await admin(`necessidades?id=eq.${c.necessidade_id}&status=neq.cancelada`, { method: 'PATCH', body: { status: 'em_busca', updated_at: agora() } });

@@ -37,7 +37,7 @@
   const lista = async () => (await sb.from('contratacoes').select('*,contratacao_pro(total)').eq('pro_id', me.id).order('inicio')).data || [];
   const totPro = (c) => { const v = Array.isArray(c.contratacao_pro) ? c.contratacao_pro[0] : c.contratacao_pro; return v ? +v.total : 0; };
   const linha = (c) => `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
-    ${DC.av(c.cliente_nome, DC.foto(c.cliente_id))}<span class="grow"><b>${esc(c.cliente_nome)}</b> <span class="small mute">· ${esc(DC.MODAL[c.modalidade].nome)}</span><br>
+    ${DC.av(c.cliente_nome, DC.foto(c.cliente_id))}<span class="grow"><b>${esc(c.tipo === 'fixo' && c.empresa_nome ? c.empresa_nome : c.cliente_nome)}</b> <span class="small mute">· ${esc(DC.MODAL[c.modalidade].nome)}</span>${c.tipo === 'fixo' ? ' <span class="tag t-blue">Contrato fixo</span>' : ''}<br>
     <span class="small mute">${DC.periodo(c)}${c.horario ? ' · ' + c.horario.slice(0, 5) : ''} · ${esc(DC.LOCAL[c.local_tipo])}${c.cidade ? ', ' + esc(c.cidade) : ''} · ${esc(c.paciente_nome)}</span></span>
     <span style="text-align:right">${DC.stTag(c.status)}<br><b class="small">${brl(totPro(c), 2)}</b></span></button>`;
   const liga = (recarregar) => $$('[data-c]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.c, 'pro', recarregar)));

@@ -7,6 +7,26 @@
   DC.$$ = (s, el) => [...(el || document).querySelectorAll(s)];
   DC.esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   DC.brl = (v, dec) => 'R$ ' + (+v || 0).toLocaleString('pt-BR', { minimumFractionDigits: dec ?? ((+v % 1) ? 2 : 0), maximumFractionDigits: 2 });
+  // contrato fixo: valor de cada parcela a partir do total de quem está vendo (mesma conta do servidor)
+  DC.alocar = (total, qtds, i) => {
+    const r = (v) => Math.round(v * 100) / 100, Q = qtds.reduce((a, b) => a + +b, 0) || 1;
+    if (i < qtds.length - 1) return r(+total * +qtds[i] / Q);
+    let soma = 0; for (let k = 0; k < qtds.length - 1; k++) soma += r(+total * +qtds[k] / Q);
+    return r(+total - soma);
+  };
+  DC.MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  DC.mesTxt = (d) => { const [y, m] = String(d).split('-'); return DC.MESES[+m - 1] + '/' + y; };
+  DC.addMeses = (d, n) => { const [y, m, dd] = d.split('-').map(Number); const t = new Date(Date.UTC(y, m - 1 + n, dd)); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
+  // divide o período em meses do calendário (só para mostrar a estimativa antes de enviar)
+  DC.partesMensais = (ini, fim, semana, mod, hd) => {
+    const out = []; let a = ini;
+    while (a && a <= fim && out.length < 13) {
+      const [y, m] = a.split('-').map(Number); const ult = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); const b = ult < fim ? ult : fim;
+      const d = DC.dias(a, b, semana).length; if (d) out.push({ inicio: a, fim: b, dias: d, quantidade: mod === 'hora' ? d * hd : d });
+      a = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+    }
+    return out;
+  };
   DC.data = (s) => (s ? String(s).slice(0, 10).split('-').reverse().join('/') : '');
   DC.dataCurta = (s) => DC.data(s).slice(0, 5);
   DC.hoje = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);

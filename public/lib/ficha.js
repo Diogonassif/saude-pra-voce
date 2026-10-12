@@ -8,23 +8,28 @@
       onClose: () => { if (canal) sb.removeChannel(canal); if (recarregar) recarregar(); } });
 
     async function carregar() {
-      const [cq, vq, sq, mq, aq] = await Promise.all([
+      const [cq, vq, sq, mq, aq, xq] = await Promise.all([
         sb.from('contratacoes').select('*').eq('id', id).single(),
         papel === 'pro' ? sb.from('contratacao_pro').select('*').eq('contratacao_id', id).maybeSingle()
           : sb.from('contratacao_cliente').select('*').eq('contratacao_id', id).maybeSingle(),
         papel === 'admin' ? sb.from('contratacao_split').select('*').eq('contratacao_id', id).maybeSingle() : Promise.resolve({ data: null }),
         sb.from('mensagens').select('*').eq('contratacao_id', id).order('created_at').limit(500),
         sb.from('avaliacoes').select('*').eq('contratacao_id', id).maybeSingle(),
+        sb.from('contratacao_parcelas').select('*').eq('contratacao_id', id).order('n'),
       ]);
       if (cq.error) throw cq.error;
       const c = cq.data;
       const contato = ['confirmado', 'concluido'].includes(c.status) && papel !== 'admin' ? (await sb.rpc('contato', { c: id })).data : null;
-      return { c, v: vq.data, sp: sq.data, msgs: mq.data || [], av: aq.data, contato };
+      return { c, v: vq.data, sp: sq.data, msgs: mq.data || [], av: aq.data, contato, P: (xq && xq.data) || [] };
     }
 
     async function render() {
       let d; try { d = await carregar(); } catch (e) { m.el.innerHTML = `<p>${esc(e.message)}</p><div class="acts"><button class="btn" data-close>Fechar</button></div>`; return; }
-      const { c, v, sp, msgs, av, contato } = d;
+      const { c, v, sp, msgs, av, contato, P } = d;
+      const fixo = c.tipo === 'fixo';
+      const qP = P.map((x) => +x.quantidade);
+      const valParc = (tot, i) => DC.alocar(tot, qP, i);
+      const prox = P.findIndex((x) => x.status !== 'pago');
       const eu = DC.me.id;
       const souPro = papel === 'pro', souCli = papel === 'cliente', souAdm = papel === 'admin';
       const pago = ['confirmado', 'concluido'].includes(c.status);
@@ -34,8 +39,8 @@
       const ende = pago || souCli || souAdm ? c.endereco : (c.cidade || 'Endereço completo aparece depois do pagamento');
 
       let valores = '';
-      if (souCli && v) valores = `<div class="resumo-total"><span class="small mute">Total do atendimento</span><span class="price">${brl(v.total, 2)}</span><span class="small mute">${brl(v.valor_unit, 2)}${un} · ${esc(DC.qtdTxt(c))}</span></div>`;
-      if (souPro && v) valores = `<div class="resumo-total"><span class="small mute">Você recebe</span><span class="price">${brl(v.total, 2)}</span><span class="small mute">${brl(v.valor_unit, 2)}${un} · ${esc(DC.qtdTxt(c))}</span></div>`;
+      if (souCli && v) valores = `<div class="resumo-total"><span class="small mute">${fixo ? 'Total do contrato' : 'Total do atendimento'}</span><span class="price">${brl(v.total, 2)}</span><span class="small mute">${brl(v.valor_unit, 2)}${un} · ${esc(DC.qtdTxt(c))}</span></div>`;
+      if (souPro && v) valores = `<div class="resumo-total"><span class="small mute">${fixo ? 'Você recebe no contrato todo' : 'Você recebe'}</span><span class="price">${brl(v.total, 2)}</span><span class="small mute">${brl(v.valor_unit, 2)}${un} · ${esc(DC.qtdTxt(c))}</span></div>`;
       if (souAdm && v && sp) valores = `<div class="grid2">
           <div class="card flat"><span class="small mute">Contratante paga</span><div class="price">${brl(v.total, 2)}</div><span class="tiny mute">${esc(DC.qtdTxt(c))}</span></div>
           <div class="card flat"><span class="small mute">Profissional recebe</span><div class="price">${brl(sp.pro, 2)}</div></div>
@@ -44,7 +49,10 @@
 
       let aviso = '';
       if (souCli && c.status === 'solicitado') aviso = `<div class="banner info">Pedido enviado para ${esc(c.pro_nome.split(' ')[0])}. Assim que aceitar, você paga aqui pelo app e o atendimento fica confirmado.</div>`;
-      if (souCli && c.status === 'aceito') aviso = `<div class="banner ok"><b>${esc(c.pro_nome.split(' ')[0])} aceitou!</b> Pague pelo app (Pix ou cartão) para confirmar. O contato aparece aqui depois do pagamento.</div>`;
+      if (souCli && c.status === 'aceito') aviso = fixo && P.length
+        ? `<div class="banner ok"><b>${esc(c.pro_nome.split(' ')[0])} aceitou o contrato!</b> Pague a 1ª parcela (${brl(valParc(v ? v.total : 0, 0), 2)}) para confirmar. As próximas são pagas mês a mês, aqui pelo app.</div>`
+        : `<div class="banner ok"><b>${esc(c.pro_nome.split(' ')[0])} aceitou!</b> Pague pelo app (Pix ou cartão) para confirmar. O contato aparece aqui depois do pagamento.</div>`;
+      if (fixo && souCli && c.status === 'confirmado' && prox >= 0) { const pr0 = P[prox]; const atras = pr0.vence_em && pr0.vence_em <= DC.hoje(); aviso += `<div class="banner ${atras ? '' : 'info'}">${atras ? '⚠️ ' : ''}Próxima parcela: <b>${pr0.n}/${P.length}</b> (${DC.mesTxt(pr0.inicio)}) · ${brl(valParc(v ? v.total : 0, prox), 2)}${pr0.vence_em ? ' · vence em ' + DC.data(pr0.vence_em) : ''}.</div>`; }
       if (souPro && c.status === 'solicitado') aviso = `<div class="banner">Confira os cuidados, as datas e o local. Ao aceitar, o contratante paga pelo app e os dias entram na sua agenda.</div>`;
       if (souPro && c.status === 'aceito') aviso = '<div class="banner info">Você aceitou. Aguardando o pagamento do contratante.</div>';
       if (c.status === 'recusado' || c.status === 'cancelado') aviso = `<div class="banner">${c.status === 'recusado' ? 'O profissional não pôde atender.' : 'Cancelado.'}${c.motivo ? ' Motivo: ' + esc(c.motivo) : ''}</div>`;
@@ -74,21 +82,28 @@
         ? `<form class="card flat col" id="avf"><h3>Como foi o atendimento de ${esc(c.pro_nome.split(' ')[0])}?</h3><div class="row" id="st">${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="btn btn-sm btn-ghost" data-n="${n}" aria-label="${n} estrela(s)">${'★'.repeat(n)}</button>`).join('')}</div><textarea class="in" id="avc" maxlength="1000" placeholder="Conte como foi (aparece no perfil do profissional, sem o seu nome)"></textarea><button class="btn" id="avs" type="button" disabled>Enviar avaliação</button></form>` : '';
 
       m.el.innerHTML = `
-        <div class="row"><span class="small mute">#${c.codigo}</span>${DC.stTag(c.status)}${c.origem === 'central' ? '<span class="tag t-blue">Indicado pela central</span>' : ''}<button class="btn btn-sm btn-ghost right" data-close aria-label="Fechar">✕</button></div>
+        <div class="row"><span class="small mute">#${c.codigo}</span>${DC.stTag(c.status)}${c.origem === 'central' ? '<span class="tag t-blue">Indicado pela central</span>' : ''}${fixo ? '<span class="tag t-blue">🏥 Contrato fixo</span>' : ''}<button class="btn btn-sm btn-ghost right" data-close aria-label="Fechar">✕</button></div>
         <h2>${esc(DC.espec(c.especialidade))} · ${esc(DC.MODAL[c.modalidade].nome.toLowerCase())}</h2>
         <div class="row" style="flex-wrap:nowrap">${souAdm ? DC.av(c.cliente_nome, DC.foto(c.cliente_id)) + DC.av(c.pro_nome, DC.foto(c.pro_id)) : DC.av(outro, DC.foto(souPro ? c.cliente_id : c.pro_id), 'lg')}<p class="small mute">${souAdm ? `Contratante: <b>${esc(c.cliente_nome)}</b> · Profissional: <b>${esc(c.pro_nome)}</b>` : `${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b>`}</p></div>
         ${aviso}
         <div class="grid2">
           <div class="col" style="gap:4px"><span class="tiny mute">QUANDO</span><b>${DC.periodo(c)}${c.horario ? ' · a partir das ' + c.horario.slice(0, 5) : ''}</b><span class="small">${esc(semana)} · ${esc(DC.qtdTxt(c))}</span></div>
           <div class="col" style="gap:4px"><span class="tiny mute">ONDE</span><b>${esc(DC.LOCAL[c.local_tipo])}</b><span class="small">${esc(ende)}</span></div>
-          <div class="col" style="gap:4px"><span class="tiny mute">QUEM RECEBE O CUIDADO</span><b>${esc(c.paciente_nome)}${c.paciente_idade != null ? ', ' + c.paciente_idade + ' anos' : ''}</b>${c.cuidados ? `<span class="small" style="white-space:pre-wrap">${esc(c.cuidados)}</span>` : ''}</div>
+          <div class="col" style="gap:4px"><span class="tiny mute">${fixo ? 'QUEM SERÁ ATENDIDO' : 'QUEM RECEBE O CUIDADO'}</span><b>${esc(c.paciente_nome)}${c.paciente_idade != null ? ', ' + c.paciente_idade + ' anos' : ''}</b>${c.cuidados ? `<span class="small" style="white-space:pre-wrap">${esc(c.cuidados)}</span>` : ''}</div>
           ${c.notas ? `<div class="col" style="gap:4px"><span class="tiny mute">OBSERVAÇÕES</span><span class="small" style="white-space:pre-wrap">${esc(c.notas)}</span></div>` : ''}
         </div>
         ${valores}
+        ${fixo ? `<div class="card flat col" style="gap:8px"><div class="row"><h3>🏥 Contrato fixo${c.empresa_nome ? ' · ' + esc(c.empresa_nome) : ''}</h3>${c.empresa_cnpj ? `<span class="small mute right">CNPJ ${esc(c.empresa_cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'))}</span>` : ''}</div>
+          ${P.length ? `<div class="tbl-box"><table class="tbl small"><thead><tr><th>Parcela</th><th>Mês</th><th class="hide-m">Dias</th><th>${souPro ? 'Você recebe' : souAdm ? 'Contratante paga' : 'Valor'}</th>${souAdm && sp ? '<th>Profissional</th>' : ''}<th>Situação</th></tr></thead><tbody>
+            ${P.map((x, i) => `<tr><td>${x.n}/${P.length}</td><td>${DC.mesTxt(x.inicio)}<br><span class="tiny mute">${DC.dataCurta(x.inicio)} a ${DC.dataCurta(x.fim)}</span></td><td class="hide-m">${x.dias}</td><td><b>${v ? brl(valParc(v.total, i), 2) : '—'}</b></td>${souAdm && sp ? `<td>${brl(valParc(sp.pro, i), 2)}</td>` : ''}
+              <td>${x.status === 'pago' ? `<span class="tag t-green">PAGA ${x.pago_em ? DC.dataCurta(x.pago_em) : ''}</span>` : i === prox && ['aceito', 'confirmado'].includes(c.status) ? `<span class="tag t-amber">${x.vence_em ? 'VENCE ' + DC.dataCurta(x.vence_em) : 'PAGAR PARA CONFIRMAR'}</span>` : `<span class="tag t-gray">${x.vence_em ? 'VENCE ' + DC.dataCurta(x.vence_em) : 'A PAGAR'}</span>`}</td></tr>`).join('')}
+          </tbody></table></div>` : '<p class="small mute">As parcelas aparecem aqui.</p>'}
+          <p class="tiny mute">${souPro ? 'Cada parcela paga cai na sua conta Mercado Pago. Os dias do contrato ficam reservados na sua agenda depois da 1ª parcela.' : 'Cada parcela cobre um mês do contrato, proporcional aos dias de atendimento. O pagamento é pelo app (Pix ou cartão).'}</p></div>` : ''}
         ${avaliar}
         ${av ? `<p class="small">Avaliação: <span class="stars">${'★'.repeat(av.nota)}</span> ${esc(av.comentario)}</p>` : ''}
         <div class="row">
-          ${souCli && c.status === 'aceito' ? `<button class="btn btn-green" id="pagar" ${pv ? 'disabled title="Responda a proposta de valor antes"' : ''}>Pagar e confirmar</button>` : ''}
+          ${souCli && c.status === 'aceito' ? `<button class="btn btn-green" id="pagar" ${pv ? 'disabled title="Responda a proposta de valor antes"' : ''}>${fixo && P.length ? 'Pagar 1ª parcela e confirmar' : 'Pagar e confirmar'}</button>` : ''}
+          ${fixo && souCli && c.status === 'confirmado' && prox >= 0 ? `<button class="btn btn-green" id="pagar">Pagar parcela ${P[prox].n}/${P.length} · ${brl(valParc(v ? v.total : 0, prox), 2)}</button>` : ''}
           ${(souCli || souPro) && ['solicitado', 'aceito'].includes(c.status) ? `<button class="btn btn-ghost" id="proporValor">💰 ${souCli ? 'Propor outro valor' : 'Propor meu valor'}</button>` : ''}
           ${souCli && ['solicitado', 'aceito'].includes(c.status) && DC.editarPedido ? '<button class="btn btn-ghost" id="editar">Editar pedido</button>' : ''}
           ${souPro && c.status === 'solicitado' ? '<button class="btn btn-green" id="aceitar">Aceitar pedido</button>' : ''}

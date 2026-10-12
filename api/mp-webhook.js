@@ -1,5 +1,5 @@
 // Aviso de pagamento do Mercado Pago. Nunca confia no corpo: consulta o pagamento na API com o token do profissional.
-import { send, readJson, admin, one, isUuid, handler, sendEmail, shell, escH, brl, emailDe, emailCentral, diasDoPeriodo } from './_lib.js';
+import { send, readJson, admin, one, isUuid, handler, sendEmail, shell, escH, brl, emailDe, emailCentral, diasDoPeriodo, alocar } from './_lib.js';
 
 export default handler(async (req, res) => {
   const b = req.method === 'POST' ? await readJson(req) : {};
@@ -23,6 +23,18 @@ export default handler(async (req, res) => {
 
   const st = pay.status; // approved, pending, rejected, refunded, charged_back...
   await admin(`pagamentos?id=eq.${pg.id}`, { method: 'PATCH', body: { mp_payment_id: payId, status: st, updated_at: new Date().toISOString() } });
+  // contrato fixo: marca a parcela como paga
+  let parc = null;
+  if (st === 'approved' && pg.status !== 'approved' && pg.parcela) {
+    await admin(`contratacao_parcelas?contratacao_id=eq.${c.id}&n=eq.${pg.parcela}`, { method: 'PATCH', body: { status: 'pago', pago_em: new Date().toISOString(), pagamento_id: pg.id } });
+    const P = (await admin(`contratacao_parcelas?contratacao_id=eq.${c.id}&select=n,quantidade&order=n`)) || [];
+    const pro = await one(`contratacao_pro?contratacao_id=eq.${c.id}&select=total`);
+    parc = { n: pg.parcela, de: P.length, pro: pro ? alocar(pro.total, P.map((x) => +x.quantidade), P.findIndex((x) => x.n === pg.parcela)) : null };
+    if (c.status === 'confirmado') {
+      sendEmail({ to: await emailDe(c.cliente_id), subject: `Parcela ${parc.n}/${parc.de} paga · contrato #${c.codigo}`, html: shell('Parcela paga', `<p>Recebemos a parcela ${parc.n} de ${parc.de} do contrato com ${escH(c.pro_nome)}. Obrigado!</p>`) });
+      sendEmail({ to: await emailDe(c.pro_id), subject: `Parcela ${parc.n}/${parc.de} paga · contrato #${c.codigo}`, html: shell('Parcela paga', `<p>${escH(c.empresa_nome || c.cliente_nome)} pagou a parcela ${parc.n} de ${parc.de}. Você recebe <b>${brl(parc.pro)}</b> na sua conta Mercado Pago.</p>`) });
+    }
+  }
   if (st === 'approved' && pg.status !== 'approved' && c.status === 'aceito') {
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'confirmado', pago_em: new Date().toISOString(), updated_at: new Date().toISOString() } });
     const dias = diasDoPeriodo(c.inicio, c.fim, c.dias_semana || [0, 1, 2, 3, 4, 5, 6]);
@@ -31,7 +43,9 @@ export default handler(async (req, res) => {
     if (c.necessidade_id) await admin(`necessidades?id=eq.${c.necessidade_id}`, { method: 'PATCH', body: { status: 'atendida', updated_at: new Date().toISOString() } });
     const pro = await one(`contratacao_pro?contratacao_id=eq.${c.id}&select=total`);
     sendEmail({ to: await emailDe(c.cliente_id), subject: 'Pagamento confirmado · Saúde Pra Você', html: shell('Atendimento confirmado', `<p>${escH(c.pro_nome)} está confirmado(a). O contato dele(a) já aparece no app.</p>`) });
-    sendEmail({ to: await emailDe(c.pro_id), subject: 'Atendimento pago · Saúde Pra Você', html: shell('Atendimento confirmado e pago', `<p>${escH(c.cliente_nome)} pagou. Você recebe <b>${brl(pro && pro.total)}</b> na sua conta Mercado Pago.</p>`) });
+    sendEmail({ to: await emailDe(c.pro_id), subject: parc ? 'Contrato fixo confirmado · Saúde Pra Você' : 'Atendimento pago · Saúde Pra Você', html: shell(parc ? 'Contrato confirmado' : 'Atendimento confirmado e pago', parc
+      ? `<p>${escH(c.empresa_nome || c.cliente_nome)} pagou a 1ª parcela (de ${parc.de}) do contrato fixo. Você recebe <b>${brl(parc.pro)}</b> agora e o restante mês a mês, a cada parcela paga.</p>`
+      : `<p>${escH(c.cliente_nome)} pagou. Você recebe <b>${brl(pro && pro.total)}</b> na sua conta Mercado Pago.</p>`) });
   }
   if (['refunded', 'charged_back'].includes(st) && pg.status === 'approved') {
     sendEmail({ to: await emailCentral(), subject: `Estorno no atendimento #${c.codigo}`, html: shell('Pagamento estornado', `<p>${escH(c.cliente_nome)} → ${escH(c.pro_nome)}: ${brl(pg.valor_total)} (${escH(st)}). Confira o atendimento no painel.</p>`) });

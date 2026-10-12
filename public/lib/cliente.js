@@ -24,6 +24,7 @@
     app.innerHTML = `
       <div class="head"><div><h1>Encontre quem vai cuidar</h1><p>Escolha o profissional, o período e pague pelo app. Tudo registrado e com segurança.</p></div>
         <a class="btn btn-coral" href="#ajuda" id="pedeAjuda">Não encontrei: pedir à central</a></div>
+      <div class="banner info row" id="fixoBan" style="justify-content:space-between"><span>🏥 <b>É clínica ou empresa?</b> Contrate um profissional fixo por 1 a 12 meses, com pagamento mensal pelo app.</span><button class="btn btn-sm ${DC.tipoPadrao === 'fixo' ? 'btn-green' : ''}" id="fixoOn">${DC.tipoPadrao === 'fixo' ? '✓ Modo contrato fixo' : 'Quero contrato fixo'}</button></div>
       <div class="seg" id="fe" style="max-width:760px"><button data-e="" class="on">Todos</button>${Object.entries(DC.ESPEC).map(([k, v]) => `<button data-e="${k}">${v.curto}</button>`).join('')}</div>
       <div class="split">
         <aside class="side" style="max-width:300px"><details class="card filtros" ${innerWidth > 800 ? 'open' : ''}><summary>Filtros</summary><div class="col">
@@ -44,7 +45,7 @@
       $('#res').innerHTML = L.length ? L.map(cartao).join('')
         : `<div class="card empty" style="grid-column:1/-1"><b>Nenhum profissional com esses filtros</b>A nossa central procura para você: conte do que precisa e nós indicamos alguém de confiança.<br><br><a class="btn btn-coral" href="#ajuda">Pedir à central</a>${wa ? ` <a class="btn btn-ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp da central</a>` : ''}</div>`;
       $$('[data-ver]').forEach((b) => (b.onclick = () => verPro(b.dataset.ver)));
-      $$('[data-ctr]').forEach((b) => (b.onclick = () => contratar(CAT.find((p) => p.user_id === b.dataset.ctr))));
+      $$('[data-ctr]').forEach((b) => (b.onclick = () => contratar(CAT.find((p) => p.user_id === b.dataset.ctr), null, null, DC.tipoPadrao)));
     };
     $$('#fe button').forEach((b) => { b.classList.toggle('on', b.dataset.e === st.e); b.onclick = () => { st.e = b.dataset.e; $$('#fe button').forEach((x) => x.classList.toggle('on', x === b)); draw(); }; });
     $('#q').oninput = (e) => { st.q = e.target.value; draw(); };
@@ -52,6 +53,7 @@
     $('#fp').onchange = (e) => { st.plantao = e.target.value; draw(); };
     $('#fg').onchange = (e) => { st.gen = e.target.value; draw(); };
     $('#fv').onchange = (e) => { st.ver = e.target.checked; draw(); };
+    $('#fixoOn').onclick = () => { DC.tipoPadrao = DC.tipoPadrao === 'fixo' ? null : 'fixo'; const on = DC.tipoPadrao === 'fixo'; $('#fixoOn').textContent = on ? '✓ Modo contrato fixo' : 'Quero contrato fixo'; $('#fixoOn').classList.toggle('btn-green', on); DC.toast(on ? 'Agora escolha o profissional e toque em Contratar: já abre como contrato fixo.' : 'Voltou para atendimento avulso'); };
     $('#pedeAjuda').onclick = (e) => { e.preventDefault(); location.hash = 'ajuda'; setTimeout(() => novaNecessidade(st.e), 60); };
     draw();
   }
@@ -81,7 +83,7 @@
         <div class="leg" style="margin-top:6px"><span><i class="d-livre"></i>Disponível</span><span><i class="d-parcial"></i>Parcial</span><span><i class="d-alocado"></i>Ocupado</span><span><i class="d-off"></i>Folga</span></div></div>
       ${(av.data || []).length ? `<div><h3>Avaliações</h3>${av.data.map((a) => `<p class="small"><span class="stars">${'★'.repeat(a.nota)}</span> ${esc(a.comentario)}</p>`).join('')}</div>` : ''}
       <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button><button class="btn" id="ctr">Contratar ${esc(p.nome.split(' ')[0])}</button></div>`, { wide: true, semFoco: true });
-    $('#ctr', m.el).onclick = () => { m.close(); contratar(p); };
+    $('#ctr', m.el).onclick = () => { m.close(); contratar(p, null, null, DC.tipoPadrao); };
   }
 
   // calendário por semana (segunda a domingo), com a data de cada dia e o período de cada semana
@@ -103,13 +105,20 @@
 
   // ------------------------------------------------------------------ contratar (escolhe tempo e paga)
   // ed = contratação existente (editar o pedido antes de pagar)
-  function contratar(p, ed, depois) {
+  function contratar(p, ed, depois, tipoIni) {
     if (!p) return;
     const u = ed ? { paciente_nome: ed.paciente_nome, paciente_idade: ed.paciente_idade, cuidados: ed.cuidados, local_tipo: ed.local_tipo, endereco: ed.endereco, cidade: ed.cidade, horario: ed.horario ? ed.horario.slice(0, 5) : '', horas_dia: ed.horas_dia } : ultimo();
     const mods = Object.keys(DC.MODAL).filter((k) => p[DC.MODAL[k].campo]);
-    const st = { mod: ed && mods.includes(ed.modalidade) ? ed.modalidade : mods[0], semana: ed && (ed.dias_semana || []).length ? [...ed.dias_semana].sort() : [0, 1, 2, 3, 4, 5, 6], local: u.local_tipo || ((p.atende || [])[0]) || 'residencia' };
+    const st = { tipo: ed ? (ed.tipo || 'avulso') : (tipoIni || 'avulso'), mod: ed && mods.includes(ed.modalidade) ? ed.modalidade : mods[0], semana: ed && (ed.dias_semana || []).length ? [...ed.dias_semana].sort() : [0, 1, 2, 3, 4, 5, 6], local: u.local_tipo || ((p.atende || [])[0]) || 'residencia' };
     const hoje = DC.hoje(), iniV = ed && ed.inicio >= hoje ? ed.inicio : hoje, fimV = ed && ed.fim >= iniV ? ed.fim : iniV;
     const m = DC.modal(`<div class="row" style="flex-wrap:nowrap">${DC.av(p.nome, p.avatar_url)}<div class="grow"><h2>${ed ? 'Editar pedido #' + ed.codigo : 'Contratar ' + esc(p.nome)}</h2><p class="small mute">${esc(DC.espec(p.especialidade))}</p></div></div>
+      <div class="col" style="gap:6px"><b class="small">Tipo de contratação</b><div class="grid2" id="tp">
+        <button type="button" class="opt ${st.tipo === 'avulso' ? 'on' : ''}" data-t="avulso"><b>Atendimento avulso</b><span>Alguns dias ou semanas, para a família. Paga tudo de uma vez.</span></button>
+        <button type="button" class="opt ${st.tipo === 'fixo' ? 'on' : ''}" data-t="fixo"><b>🏥 Contrato fixo</b><span>Clínicas e empresas: o profissional fixo por meses, com pagamento mensal.</span></button></div></div>
+      <div class="col" id="fixoBox" style="gap:10px">
+        <div class="grid2" style="grid-template-columns:1fr 220px"><label class="f">Clínica ou empresa<input class="in" id="emp" maxlength="120" value="${esc(ed ? ed.empresa_nome || '' : (u.empresa_nome || ''))}" placeholder="Ex.: Clínica Bem Viver"></label>
+          <label class="f">CNPJ (opcional)<input class="in" id="cnpj" inputmode="numeric" maxlength="18" value="${esc(ed ? ed.empresa_cnpj || '' : (u.empresa_cnpj || ''))}" placeholder="00.000.000/0000-00"></label></div>
+        <label class="f">Duração do contrato<select class="in" id="mes">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `<option value="${n}" ${n === 3 ? 'selected' : ''}>${n} ${n === 1 ? 'mês' : 'meses'}</option>`).join('')}</select><small>Ajusta o último dia sozinho; você pode mudar a data depois, se quiser</small></label></div>
       <div class="col"><b class="small">Como cobrar</b><div class="seg" id="md">${mods.map((k) => `<button type="button" data-m="${k}" class="${k === st.mod ? 'on' : ''}">${DC.MODAL[k].nome}<br><span class="tiny">${brl(p[DC.MODAL[k].campo])}</span></button>`).join('')}</div></div>
       <div class="grid2">
         <label class="f">Primeiro dia<input class="in" type="date" id="ini" min="${hoje}" value="${iniV}"></label>
@@ -118,8 +127,8 @@
         <label class="f" id="hdL">Horas por dia<input class="in" type="number" id="hd" min="1" max="24" value="${u.horas_dia || 6}"></label>
       </div>
       <div class="col" style="gap:6px"><b class="small">Dias da semana</b><div class="sem" id="sem">${DC.SEMANA.map((d, i) => `<button type="button" data-d="${i}" class="${st.semana.includes(i) ? 'on' : ''}">${d}</button>`).join('')}</div></div>
-      <h3>Quem vai receber o cuidado</h3>
-      <div class="grid2" style="grid-template-columns:1fr 110px"><label class="f">Nome<input class="in" id="pn" maxlength="120" value="${esc(u.paciente_nome || '')}" placeholder="Ex.: Dona Lúcia"></label>
+      <h3 id="quemT">Quem vai receber o cuidado</h3>
+      <div class="grid2" style="grid-template-columns:1fr 110px"><label class="f"><span id="pnL">Nome</span><input class="in" id="pn" maxlength="120" value="${esc(u.paciente_nome || '')}" placeholder="Ex.: Dona Lúcia"></label>
         <label class="f">Idade<input class="in" id="pi" inputmode="numeric" maxlength="3" value="${esc(u.paciente_idade ?? '')}"></label></div>
       <label class="f">Cuidados necessários<small>Quanto mais detalhe, melhor o profissional se prepara</small><textarea class="in" id="cu" maxlength="3000" placeholder="Ex.: acamada, troca de fralda, medicação às 8h e 20h, curativo na perna, dieta por sonda">${esc(u.cuidados || '')}</textarea></label>
       <div class="col" style="gap:6px"><b class="small">Onde</b><div class="seg" id="lc">${Object.entries(DC.LOCAL).map(([k, v]) => `<button type="button" data-l="${k}" class="${k === st.local ? 'on' : ''}">${v.split(' /')[0]}</button>`).join('')}</div></div>
@@ -140,19 +149,39 @@
     };
     const draw = () => {
       $('#hdL', m.el).classList.toggle('hide', st.mod !== 'hora');
+      const fixo = st.tipo === 'fixo';
+      $('#fixoBox', m.el).classList.toggle('hide', !fixo);
+      $('#quemT', m.el).textContent = fixo ? 'Quem será atendido' : 'Quem vai receber o cuidado';
+      $('#pnL', m.el).textContent = fixo ? 'Pacientes ou setor' : 'Nome';
+      $('#pn', m.el).placeholder = fixo ? 'Ex.: Pacientes da ala de internação' : 'Ex.: Dona Lúcia';
       $('#endDica', m.el).textContent = st.local === 'hospital' || st.local === 'clinica' ? 'nome do hospital, quarto e leito' : 'rua, número, bairro';
       const v = val();
+      const parts = fixo && v.dias.length ? DC.partesMensais(v.ini, v.fim, st.semana, st.mod, v.hd) : [];
+      if (fixo && v.dias.length) {
+        const q = parts.map((x) => x.quantidade), p1 = DC.alocar(v.total, q, 0);
+        $('#tot', m.el).innerHTML = `<span class="small mute">Contrato fixo · ${parts.length} parcela(s) mensal(is)</span><span class="price">${brl(v.total / parts.length, 2)}<small style="font-size:14px"> /mês em média</small></span>
+          <span class="small mute">Total do contrato ${brl(v.total, 2)} · ${v.dias.length} dia(s) · ${st.mod === 'hora' ? v.q + ' horas × ' + brl(v.unit, 2) : v.q + ' plantão(ões) × ' + brl(v.unit, 2)}.<br>1ª parcela (${DC.mesTxt(parts[0].inicio)}): <b>${brl(p1, 2)}</b>, paga quando o profissional aceitar. As outras, uma por mês, pelo app.</span>`;
+        return;
+      }
       $('#tot', m.el).innerHTML = v.dias.length
         ? `<span class="small mute">Total a pagar pelo app</span><span class="price">${brl(v.total, 2)}</span><span class="small mute">${v.dias.length} dia(s) · ${st.mod === 'hora' ? v.q + ' horas × ' + brl(v.unit, 2) : v.q + ' plantão(ões) × ' + brl(v.unit, 2)}. Você só paga depois que o profissional aceitar.</span>`
         : '<span class="small">Nenhum dia do período cai nos dias da semana escolhidos.</span>';
     };
+    const poeMeses = () => { const ini = $('#ini', m.el).value; if (ini) { const f = DC.addMeses(ini, +$('#mes', m.el).value); $('#fim', m.el).value = f; } };
+    $$('#tp [data-t]', m.el).forEach((b) => (b.onclick = () => {
+      st.tipo = b.dataset.t; $$('#tp [data-t]', m.el).forEach((x) => x.classList.toggle('on', x === b));
+      if (st.tipo === 'fixo') { if (!ed) poeMeses(); if (st.local === 'residencia') { st.local = 'clinica'; $$('#lc button', m.el).forEach((x) => x.classList.toggle('on', x.dataset.l === 'clinica')); } }
+      draw();
+    }));
+    $('#mes', m.el).onchange = () => { poeMeses(); draw(); };
+    if (st.tipo === 'fixo' && !ed) poeMeses();
     $$('#md button', m.el).forEach((b) => (b.onclick = () => { st.mod = b.dataset.m; $$('#md button', m.el).forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
     $$('#lc button', m.el).forEach((b) => (b.onclick = () => { st.local = b.dataset.l; $$('#lc button', m.el).forEach((x) => x.classList.toggle('on', x === b)); draw(); }));
     $$('#sem button', m.el).forEach((b) => (b.onclick = () => {
       const d = +b.dataset.d; st.semana = st.semana.includes(d) ? st.semana.filter((x) => x !== d) : [...st.semana, d].sort();
       b.classList.toggle('on', st.semana.includes(d)); draw();
     }));
-    $('#ini', m.el).onchange = () => { if ($('#fim', m.el).value < $('#ini', m.el).value) $('#fim', m.el).value = $('#ini', m.el).value; $('#fim', m.el).min = $('#ini', m.el).value; draw(); };
+    $('#ini', m.el).onchange = () => { if (st.tipo === 'fixo') poeMeses(); if ($('#fim', m.el).value < $('#ini', m.el).value) $('#fim', m.el).value = $('#ini', m.el).value; $('#fim', m.el).min = $('#ini', m.el).value; draw(); };
     ['#fim', '#hd'].forEach((s) => ($(s, m.el).oninput = draw));
     draw();
     $('#env', m.el).onclick = () => DC.busy($('#env', m.el), async () => {
@@ -160,13 +189,16 @@
       if (!v.dias.length) throw new Error('Escolha datas e dias da semana');
       const body = { acao: ed ? 'editar' : 'criar', id: ed ? ed.id : undefined, pro_id: p.user_id, modalidade: st.mod, inicio: v.ini, fim: v.fim, horario: $('#hor', m.el).value, horas_dia: v.hd,
         dias_semana: st.semana, paciente_nome: $('#pn', m.el).value.trim(), paciente_idade: $('#pi', m.el).value.replace(/\D/g, ''),
-        cuidados: $('#cu', m.el).value.trim(), local_tipo: st.local, endereco: $('#en', m.el).value.trim(), cidade: $('#ci', m.el).value.trim(), notas: $('#no', m.el).value.trim() };
+        cuidados: $('#cu', m.el).value.trim(), local_tipo: st.local, endereco: $('#en', m.el).value.trim(), cidade: $('#ci', m.el).value.trim(), notas: $('#no', m.el).value.trim(),
+        tipo: st.tipo, empresa_nome: st.tipo === 'fixo' ? $('#emp', m.el).value.trim() : null, empresa_cnpj: st.tipo === 'fixo' ? $('#cnpj', m.el).value.replace(/\D/g, '') : null };
+      if (body.tipo === 'fixo' && !body.empresa_nome) throw new Error('Informe o nome da clínica ou empresa');
+      if (body.empresa_cnpj && body.empresa_cnpj.length !== 14) throw new Error('CNPJ inválido: são 14 números');
       if (!body.paciente_nome) throw new Error('Informe quem vai receber o cuidado');
       if (!body.endereco) throw new Error('Informe o endereço do atendimento');
       const r = await DC.api('/api/contratar', body);
       if (ed) { m.close(); DC.toast(r.voltou ? 'Pedido alterado. Ele volta para o profissional confirmar.' : 'Pedido alterado · total ' + brl(r.total_cliente, 2)); if (depois) depois(); return; }
-      guardaUltimo({ paciente_nome: body.paciente_nome, paciente_idade: body.paciente_idade, cuidados: body.cuidados, local_tipo: body.local_tipo, endereco: body.endereco, cidade: body.cidade, horario: body.horario, horas_dia: body.horas_dia });
-      m.close(); DC.toast('Pedido enviado! Avisamos ' + p.nome.split(' ')[0] + '.');
+      guardaUltimo({ empresa_nome: body.empresa_nome || u.empresa_nome, empresa_cnpj: body.empresa_cnpj || u.empresa_cnpj, paciente_nome: body.paciente_nome, paciente_idade: body.paciente_idade, cuidados: body.cuidados, local_tipo: body.local_tipo, endereco: body.endereco, cidade: body.cidade, horario: body.horario, horas_dia: body.horas_dia });
+      m.close(); DC.toast((body.tipo === 'fixo' ? 'Proposta de contrato fixo enviada! Avisamos ' : 'Pedido enviado! Avisamos ') + p.nome.split(' ')[0] + '.');
       location.hash = 'contratacoes'; setTimeout(() => DC.abrirContratacao(r.id, 'cliente', contratacoes), 250);
     });
   }
@@ -186,7 +218,7 @@
     const L = data || [];
     const tot = (c) => { const v = Array.isArray(c.contratacao_cliente) ? c.contratacao_cliente[0] : c.contratacao_cliente; return v ? brl(v.total, 2) : '—'; };
     const linha = (c) => `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
-      ${DC.av(c.pro_nome, DC.foto(c.pro_id))}<span class="grow"><b>${esc(c.pro_nome)}</b> <span class="small mute">· ${esc(DC.espec(c.especialidade))}</span><br><span class="small mute">${DC.periodo(c)} · ${esc(c.paciente_nome)} · ${esc(DC.LOCAL[c.local_tipo])}</span></span>
+      ${DC.av(c.pro_nome, DC.foto(c.pro_id))}<span class="grow"><b>${esc(c.pro_nome)}</b> <span class="small mute">· ${esc(DC.espec(c.especialidade))}</span>${c.tipo === 'fixo' ? ' <span class="tag t-blue">Contrato fixo</span>' : ''}<br><span class="small mute">${c.tipo === 'fixo' && c.empresa_nome ? esc(c.empresa_nome) + ' · ' : ''}${DC.periodo(c)} · ${esc(c.paciente_nome)} · ${esc(DC.LOCAL[c.local_tipo])}</span></span>
       <span style="text-align:right">${DC.stTag(c.status)}<br><b class="small">${tot(c)}</b></span></button>`;
     const bloco = (tit, F, vazio, extra) => { const X = L.filter(F); return X.length || vazio ? `<div class="card col ${extra || ''}"><h2>${tit}</h2>${X.length ? `<div class="list">${X.map(linha).join('')}</div>` : `<p class="small mute">${vazio}</p>`}</div>` : ''; };
     app.innerHTML = `<div class="head"><div><h1>Minhas contratações</h1><p>Acompanhe pedidos, pague pelo app e converse com o profissional.</p></div><a class="btn" href="#catalogo">Contratar profissional</a></div>
@@ -216,8 +248,11 @@
   }
   function novaNecessidade(esp) {
     const u = ultimo();
-    let e = esp || 'cuidador', turno = 'dia', local = u.local_tipo || 'residencia';
+    let e = esp || 'cuidador', turno = 'dia', local = u.local_tipo || 'residencia', tipo = DC.tipoPadrao === 'fixo' ? 'fixo' : 'avulso';
     const m = DC.modal(`<h2>Do que você precisa?</h2>
+      <div class="seg" id="ntp"><button type="button" data-t="avulso" class="${tipo === 'avulso' ? 'on' : ''}">Atendimento avulso</button><button type="button" data-t="fixo" class="${tipo === 'fixo' ? 'on' : ''}">🏥 Contrato fixo (clínica/empresa)</button></div>
+      <div class="grid2 ${tipo === 'fixo' ? '' : 'hide'}" id="nfx"><label class="f">Clínica ou empresa<input class="in" id="nemp" maxlength="120" value="${esc(u.empresa_nome || '')}"></label>
+        <label class="f">Por quantos meses?<select class="in" id="nmes">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `<option value="${n}" ${n === 3 ? 'selected' : ''}>${n} ${n === 1 ? 'mês' : 'meses'}</option>`).join('')}</select></label></div>
       <div class="grid2" id="es">${Object.entries(DC.ESPEC).map(([k, v]) => `<button type="button" class="opt ${k === e ? 'on' : ''}" data-e="${k}"><b>${v.nome}</b><span>${v.dica}</span></button>`).join('')}</div>
       <div class="grid2" style="grid-template-columns:1fr 110px"><label class="f">Quem vai receber o cuidado<input class="in" id="pn" maxlength="120" value="${esc(u.paciente_nome || '')}"></label><label class="f">Idade<input class="in" id="pi" inputmode="numeric" maxlength="3" value="${esc(u.paciente_idade ?? '')}"></label></div>
       <label class="f">Cuidados necessários<textarea class="in" id="cu" maxlength="3000">${esc(u.cuidados || '')}</textarea></label>
@@ -234,12 +269,16 @@
       <label class="f">Mais alguma coisa? (opcional)<textarea class="in" id="ob" maxlength="2000" style="min-height:70px"></textarea></label>
       <div class="acts"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-coral" id="env">Enviar para a central</button></div>`, { wide: true, semFoco: true });
     $$('#es [data-e]', m.el).forEach((b) => (b.onclick = () => { e = b.dataset.e; $$('#es [data-e]', m.el).forEach((x) => x.classList.toggle('on', x === b)); }));
+    $$('#ntp [data-t]', m.el).forEach((b) => (b.onclick = () => { tipo = b.dataset.t; $$('#ntp [data-t]', m.el).forEach((x) => x.classList.toggle('on', x === b)); $('#nfx', m.el).classList.toggle('hide', tipo !== 'fixo'); if (tipo === 'fixo' && $('#lc', m.el).value === 'residencia') $('#lc', m.el).value = 'clinica'; }));
     $('#env', m.el).onclick = () => DC.busy($('#env', m.el), async () => {
       turno = $('#tu', m.el).value; local = $('#lc', m.el).value;
       const row = { cliente_id: me.id, especialidade: e, paciente_nome: $('#pn', m.el).value.trim(), paciente_idade: +$('#pi', m.el).value || null,
         cuidados: $('#cu', m.el).value.trim(), local_tipo: local, cidade: $('#ci', m.el).value.trim() || null, endereco: $('#en', m.el).value.trim() || null,
         inicio: $('#ini', m.el).value || null, fim: $('#fim', m.el).value || null, turno, horas_dia: turno === '24h' ? 24 : null,
-        genero_pref: $('#gp', m.el).value || null, orcamento: +$('#or', m.el).value || null, observacoes: $('#ob', m.el).value.trim() };
+        genero_pref: $('#gp', m.el).value || null, orcamento: +$('#or', m.el).value || null, observacoes: $('#ob', m.el).value.trim(),
+        tipo, empresa_nome: tipo === 'fixo' ? $('#nemp', m.el).value.trim() : null, meses: tipo === 'fixo' ? +$('#nmes', m.el).value : null };
+      if (tipo === 'fixo' && !row.empresa_nome) throw new Error('Informe o nome da clínica ou empresa');
+      if (tipo === 'fixo' && row.inicio && !row.fim) row.fim = DC.addMeses(row.inicio, row.meses);
       if (!row.paciente_nome) throw new Error('Informe quem vai receber o cuidado');
       if (!row.inicio) throw new Error('Informe quando precisa começar');
       if (!row.endereco) throw new Error('Informe o endereço do atendimento');

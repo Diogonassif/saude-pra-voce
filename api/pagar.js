@@ -1,7 +1,7 @@
 // Gera o pagamento (Checkout Pro do Mercado Pago) de uma contratação aceita pelo profissional.
 // Cobra na conta Mercado Pago do profissional; Saúde Pra Você (15%) + Mind (10%) entram juntos como marketplace_fee,
 // que cai na conta da Saúde Pra Você (dona da aplicação de marketplace). O contratante vê só o total.
-import { send, readJson, who, admin, one, isUuid, fail, handler, appUrl, sendEmail, shell, escH, emailCentral } from './_lib.js';
+import { send, readJson, who, admin, one, isUuid, fail, handler, appUrl, sendEmail, shell, escH, emailCentral, alocar, money } from './_lib.js';
 
 export default handler(async (req, res) => {
   if (req.method !== 'POST') return send(res, 405, { error: 'use POST' });
@@ -10,8 +10,10 @@ export default handler(async (req, res) => {
   if (!isUuid(b.contratacao_id)) throw fail(400, 'Contratação inválida');
   const c = await one(`contratacoes?id=eq.${b.contratacao_id}&select=*`);
   if (!c || c.cliente_id !== me.id) throw fail(403, 'Só o contratante paga');
-  if (c.status === 'confirmado' || c.status === 'concluido') throw fail(409, 'Este atendimento já está pago');
-  if (c.status !== 'aceito') throw fail(409, 'Aguarde o profissional aceitar o pedido');
+  const fixo = c.tipo === 'fixo';
+  if (!fixo && (c.status === 'confirmado' || c.status === 'concluido')) throw fail(409, 'Este atendimento já está pago');
+  if (fixo && !['aceito', 'confirmado'].includes(c.status)) throw fail(409, c.status === 'solicitado' ? 'Aguarde o profissional aceitar o contrato' : 'Este contrato não aceita mais pagamentos');
+  if (!fixo && c.status !== 'aceito') throw fail(409, 'Aguarde o profissional aceitar o pedido');
   if (c.proposta_valor) throw fail(409, 'Há uma proposta de valor em aberto no chat. Responda (ou aguarde a resposta) antes de pagar.');
   const [cli, sp] = await Promise.all([
     one(`contratacao_cliente?contratacao_id=eq.${c.id}&select=total`),
@@ -24,13 +26,25 @@ export default handler(async (req, res) => {
       html: shell('Profissional sem conta de recebimento', `<p>${escH(c.pro_nome)} ainda não conectou o Mercado Pago e ${escH(c.cliente_nome)} tentou pagar.</p>`) });
     throw fail(409, 'O profissional ainda não conectou a conta de recebimento. A nossa central já foi avisada e fala com você.');
   }
-  const taxa = +(+sp.debcare + +sp.mind).toFixed(2);
+  // contrato fixo: cobra a próxima parcela mensal (proporcional às horas/plantões do mês)
+  let valor = +cli.total, debcare = +sp.debcare, mind = +sp.mind, parcela = null, rotulo = `${c.dias} dia(s)`;
+  if (fixo) {
+    const P = (await admin(`contratacao_parcelas?contratacao_id=eq.${c.id}&select=n,inicio,fim,quantidade,status&order=n`)) || [];
+    if (!P.length) throw fail(409, 'As parcelas deste contrato ainda não foram geradas. Fale com a central.');
+    const i = P.findIndex((x) => x.status !== 'pago');
+    if (i < 0) throw fail(409, 'Todas as parcelas deste contrato já foram pagas');
+    const q = P.map((x) => +x.quantidade);
+    valor = alocar(cli.total, q, i); debcare = alocar(sp.debcare, q, i); mind = alocar(sp.mind, q, i);
+    parcela = P[i].n;
+    rotulo = `contrato fixo · parcela ${P[i].n}/${P.length} (${P[i].inicio.split('-').reverse().join('/').slice(0, 5)} a ${P[i].fim.split('-').reverse().join('/').slice(0, 5)})`;
+  }
+  const taxa = money(debcare + mind);
   const [pg] = await admin('pagamentos', { method: 'POST', prefer: 'return=representation',
-    body: { contratacao_id: c.id, valor_total: cli.total, taxa, debcare: sp.debcare, mind: sp.mind, status: 'pendente' } });
+    body: { contratacao_id: c.id, valor_total: valor, taxa, debcare, mind, status: 'pendente', parcela } });
   const url = appUrl(req);
-  const titulo = `Saúde Pra Você #${c.codigo} · ${c.pro_nome.split(' ')[0]} · ${c.dias} dia(s)`;
+  const titulo = `Saúde Pra Você #${c.codigo} · ${c.pro_nome.split(' ')[0]} · ${rotulo}`;
   const pref = {
-    items: [{ id: pg.id, title: titulo.slice(0, 250), quantity: 1, unit_price: +cli.total, currency_id: 'BRL' }],
+    items: [{ id: pg.id, title: titulo.slice(0, 250), quantity: 1, unit_price: valor, currency_id: 'BRL' }],
     external_reference: pg.id,
     marketplace_fee: taxa,
     notification_url: `${url}/api/mp-webhook?pg=${pg.id}`,

@@ -45,8 +45,9 @@
     const monta = () => { if (!editada) msg.value = CONVITE[tipo]($('#cvNome', m.el).value.trim().split(' ')[0], link); };
     monta();
     msg.oninput = () => { editada = true; };
-    $('#cvNome', m.el).oninput = monta;
+    $('#cvNome', m.el).addEventListener('input', monta); $('#cvNome', m.el).addEventListener('change', monta);
     $('#cvOk', m.el).onclick = () => {
+      monta();
       const d = DC.tel($('#cvTel', m.el).value);
       if (!d) return DC.erro(new Error('Celular inválido: use DDD + número'));
       if (!msg.value.trim()) return DC.erro(new Error('Escreva a mensagem'));
@@ -142,7 +143,7 @@
     const N = nq.data || [];
     const ativa = (n) => ['aberta', 'em_busca'].includes(n.status);
     const card = (n) => `<div class="card col ${n.status === 'aberta' ? 'alerta' : ''}">
-      <div class="row"><b>#${n.codigo} · ${esc(DC.espec(n.especialidade))}</b>${DC.necTag(n.status)}<span class="small mute right">${new Date(n.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
+      <div class="row"><b>#${n.codigo} · ${esc(DC.espec(n.especialidade))}</b>${DC.necTag(n.status)}${n.tipo === 'fixo' ? `<span class="tag t-blue">🏥 Contrato fixo · ${n.meses || '?'} ${n.meses === 1 ? 'mês' : 'meses'}${n.empresa_nome ? ' · ' + esc(n.empresa_nome) : ''}</span>` : ''}<span class="small mute right">${new Date(n.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span></div>
       <div class="grid2 small">
         <div><span class="tiny mute">CONTRATANTE</span><br><b>${esc(n.cliente_nome)}</b> · ${esc(DC.telBonito(TEL[n.cliente_id]))}</div>
         <div><span class="tiny mute">PACIENTE</span><br><b>${esc(n.paciente_nome)}</b>${n.paciente_idade != null ? ', ' + n.paciente_idade + ' anos' : ''}</div>
@@ -171,6 +172,7 @@
     const L = (P || []).sort((a, z) => (z.especialidade === n.especialidade) - (a.especialidade === n.especialidade));
     const st = { pro: null, mod: n.turno === '24h' ? 'plantao24' : 'hora', semana: [0, 1, 2, 3, 4, 5, 6] };
     const m = DC.modal(`<h2>Indicar profissional · pedido #${n.codigo}</h2><p class="small mute">${esc(n.cliente_nome)} · ${esc(DC.espec(n.especialidade))} · ${esc(n.cidade || '')}</p>
+      ${n.tipo === 'fixo' ? `<div class="banner info">🏥 <b>Contrato fixo</b>${n.empresa_nome ? ' de ' + esc(n.empresa_nome) : ''}${n.meses ? ' por ' + n.meses + (n.meses === 1 ? ' mês' : ' meses') : ''}: vai ao profissional como contrato fixo, com pagamento em parcelas mensais.</div>` : ''}
       <label class="f">Profissional<select class="in" id="pp"><option value="">Escolha</option>${L.map((p) => { const semCoren = DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren && p.coren_status !== 'ativo'; return `<option value="${p.user_id}" ${semCoren ? 'disabled' : ''}>${esc(p.nome)} · ${esc(DC.espec(p.especialidade))}${p.cidade ? ' · ' + esc(p.cidade) : ''}${p.verificado ? ' ✓' : ''} · ${brl(p.valor_hora, 2)}/h${semCoren ? ' · COREN a conferir' : ''}</option>`; }).join('')}</select></label>
       <div class="seg" id="md">${Object.entries(DC.MODAL).map(([k, v]) => `<button type="button" data-m="${k}" class="${k === st.mod ? 'on' : ''}">${v.nome}</button>`).join('')}</div>
       <div class="grid2">
@@ -218,7 +220,7 @@
       <div class="card"><div class="tbl-box"><table class="tbl"><thead><tr><th>#</th><th>Contratante → profissional</th><th>Período</th><th>Contratante paga</th><th>Profissional</th><th>Saúde Pra Você</th><th>Mind</th><th>Status</th><th></th></tr></thead><tbody id="tb"></tbody></table></div></div>`;
     const draw = () => {
       $('#tb').innerHTML = (data || []).filter((c) => !fs || c.status === fs).map((c) => { const s = um(c.contratacao_split), v = um(c.contratacao_cliente); return `<tr class="go" data-row="${c.id}" title="Duplo clique para ver tudo">
-        <td class="small">${c.codigo}</td><td><b>${esc(c.cliente_nome)}</b> → ${esc(c.pro_nome)}<br><span class="small mute">${esc(DC.espec(c.especialidade))} · ${esc(DC.MODAL[c.modalidade].nome)}${c.origem === 'central' ? ' · central' : ''}</span></td>
+        <td class="small">${c.codigo}</td><td><b>${esc(c.cliente_nome)}</b> → ${esc(c.pro_nome)}<br><span class="small mute">${esc(DC.espec(c.especialidade))} · ${esc(DC.MODAL[c.modalidade].nome)}${c.origem === 'central' ? ' · central' : ''}</span>${c.tipo === 'fixo' ? `<br><span class="tag t-blue">Contrato fixo${c.empresa_nome ? ' · ' + esc(c.empresa_nome) : ''}</span>` : ''}</td>
         <td class="small">${DC.periodo(c)}<br>${esc(DC.qtdTxt(c))}</td><td><b>${brl(v.total, 2)}</b></td><td>${brl(s.pro, 2)}</td><td>${brl(s.debcare, 2)}</td><td>${brl(s.mind, 2)}</td>
         <td>${DC.stTag(c.status)}</td><td><button class="btn btn-sm btn-ghost" data-c="${c.id}">Abrir</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="mute">Nenhuma contratação.</td></tr>';
       $$('[data-c]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.c, 'admin', contratacoes)));

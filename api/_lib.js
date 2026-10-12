@@ -113,6 +113,29 @@ export function diasDoPeriodo(inicio, fim, semana) {
   return out;
 }
 
+// contrato fixo: divide o período em parcelas por mês do calendário (só meses com dias de atendimento)
+export function partesMensais(c) {
+  const semana = c.dias_semana && c.dias_semana.length ? c.dias_semana : [0, 1, 2, 3, 4, 5, 6];
+  const out = [];
+  let ini = c.inicio;
+  while (ini <= c.fim && out.length < 13) {
+    const [y, m] = ini.split('-').map(Number);
+    const ultimo = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    const fim = ultimo < c.fim ? ultimo : c.fim;
+    const dias = diasDoPeriodo(ini, fim, semana).length;
+    if (dias) out.push({ inicio: ini, fim, dias, quantidade: c.modalidade === 'hora' ? dias * (+c.horas_dia || 0) : dias });
+    ini = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
+  }
+  return out.map((x, i) => Object.assign(x, { n: i + 1, vence_em: i === 0 ? null : x.inicio }));
+}
+// valor da parcela i (0..) proporcional à quantidade; a última fica com o resto para fechar o total exato
+export function alocar(total, qtds, i) {
+  const Q = qtds.reduce((a, b) => a + +b, 0) || 1;
+  if (i < qtds.length - 1) return money(+total * +qtds[i] / Q);
+  let soma = 0; for (let k = 0; k < qtds.length - 1; k++) soma += money(+total * +qtds[k] / Q);
+  return money(+total - soma);
+}
+
 export function handler(fn) {
   return async (req, res) => {
     try { await fn(req, res); }
