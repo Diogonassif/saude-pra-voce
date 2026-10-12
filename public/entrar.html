@@ -131,7 +131,7 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
       if (!login) throw new Error('Digite o celular ou o e-mail');
       const r = await fetch('/api/recuperar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acao: 'pedir', login }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || 'Não deu para enviar agora');
+      if (!r.ok) { $('#rcMsg', m.el).innerHTML = `<div class="banner">${DC.esc(j.error || 'Não deu para enviar agora. Tente de novo.')}${wa ? ` <a class="btn btn-sm btn-green" style="margin-top:8px" href="${DC.esc(wa)}" target="_blank" rel="noopener">Falar com a central</a>` : ''}</div>`; return; }
       $('#rcMsg', m.el).innerHTML = `<div class="banner ok">📧 ${DC.esc(j.msg)}</div>`;
       $('#rcOk', m.el).textContent = 'Enviar de novo';
     });

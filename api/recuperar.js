@@ -19,7 +19,7 @@ export default handler(async (req, res) => {
   const b = await readJson(req);
 
   if (b.acao === 'pedir') {
-    if (!env('RESEND_API_KEY')) throw fail(503, 'O envio por e-mail ainda não está ativo. Fale com a nossa central pelo WhatsApp.');
+    if (!env('RESEND_API_KEY')) throw fail(409, 'O envio de e-mail ainda está sendo ativado. Por enquanto, fale com a nossa central pelo WhatsApp (link abaixo) que mandamos uma senha nova.');
     const login = String(b.login || '').trim().toLowerCase().slice(0, 200);
     let p = null;
     if (login.includes('@')) {
@@ -41,7 +41,7 @@ export default handler(async (req, res) => {
     const ok = await sendEmail({ to: p.email, subject: 'Criar uma senha nova · Saúde Pra Você',
       html: shell('Criar uma senha nova', `<p>Olá, ${escH((p.nome || '').split(' ')[0])}! Recebemos um pedido para trocar a senha da sua conta na Saúde Pra Você.</p><p>O link vale por 1 hora e só funciona uma vez. Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>`,
         { url: link, label: 'Criar senha nova' }) });
-    if (!ok) throw fail(502, 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos ou fale com a central.');
+    if (!ok) throw fail(409, 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos ou fale com a central pelo WhatsApp.');
     return send(res, 200, resposta);
   }
 
@@ -54,7 +54,7 @@ export default handler(async (req, res) => {
     if (new Date(r0.expira_em) < new Date()) throw fail(400, 'Este link venceu (vale 1 hora). Peça um novo em "Esqueci a senha".');
     const r = await fetch(env('SUPABASE_URL') + '/auth/v1/admin/users/' + r0.user_id, { method: 'PUT',
       headers: { ...svc(), 'content-type': 'application/json' }, body: JSON.stringify({ password: senha }) });
-    if (!r.ok) throw fail(502, 'Não deu para trocar a senha agora. Tente de novo.');
+    if (!r.ok) throw fail(409, 'Não deu para trocar a senha agora. Tente de novo.');
     const agora = new Date().toISOString();
     await admin(`senha_resets?user_id=eq.${r0.user_id}&usado_em=is.null`, { method: 'PATCH', body: { usado_em: agora } });
     return send(res, 200, { ok: true });
