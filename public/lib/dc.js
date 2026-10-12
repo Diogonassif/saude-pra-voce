@@ -177,21 +177,29 @@
     window.addEventListener('hashchange', go); go();
   };
   DC.marca = (sub) => `<span class="mk" aria-hidden="true"><svg viewBox="0 0 64 64" width="30" height="30"><rect x="1" y="1" width="62" height="62" rx="15" fill="#0E2B36" stroke="rgba(255,255,255,.22)" stroke-width="2"/><path d="M32 50C18 41 12 33 12 25c0-6.5 5-11 10.8-11 4.2 0 7.4 2.4 9.2 5.6C33.8 16.4 37 14 41.2 14 47 14 52 18.5 52 25c0 8-6 16-20 25z" fill="#2BB59A"/><path d="M32 25v12M26 31h12" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg></span><span class="wm">Saúde <b>Pra Você</b></span>${sub ? `<small>${DC.esc(sub)}</small>` : ''}`;
+  // qual área está aberta: selo colorido no topo, para nunca confundir os perfis
+  DC.AREAS = {
+    '/cliente.html': { nome: 'Contratante', selo: 'Área do contratante', ic: '👪', cls: 'a-cli' },
+    '/pro.html': { nome: 'Profissional', selo: 'Área do profissional', ic: '🩺', cls: 'a-pro' },
+    '/admin.html': { nome: 'Gestão', selo: 'Gestão · Central', ic: '🏥', cls: 'a-adm' },
+    '/mind.html': { nome: 'Painel Mind', selo: 'Painel Mind', ic: '📊', cls: 'a-mind' },
+  };
   DC.topo = (me, abas, aud) => {
     const el = DC.$('#top');
-    el.innerHTML = `<div class="top-in">
-      <a class="brand" href="${DC.home(me.role, me)}">${DC.marca(aud)}</a>
-      <nav class="nav" aria-label="Principal">${abas.map(([k, l]) => `<a href="#${k}" data-tab="${k}">${DC.esc(l)}</a>`).join('')}</nav>
-      <div class="who">${me.isMind ? `<a class="btn btn-sm ${aud === 'Mind' ? '' : 'btn-ghost'}" href="/mind.html" title="Painel Mind: ver como qualquer perfil">Mind</a>` : me.isAdmin && aud !== 'Central' ? '<a class="btn btn-sm btn-ghost" href="/admin.html">Central</a>' : ''}
+    const aqui = DC.AREAS[location.pathname] || null;
+    // gestor da Mind: barra fina separada, acima do menu, para trocar de perfil com um toque (sem novo login)
+    const troca = me.isMind ? `<div class="troca" id="trocaPerfil" role="navigation" aria-label="Trocar de perfil">
+        <span class="troca-l">Modo gestor <b>·</b> ver o app como</span>
+        <span class="troca-seg">${Object.entries(DC.AREAS).map(([h, a]) => `<a href="${h}" class="${location.pathname === h ? 'on ' + a.cls : ''}" ${location.pathname === h ? 'aria-current="page"' : ''}><span aria-hidden="true">${a.ic}</span> ${a.nome}</a>`).join('')}</span></div>` : '';
+    el.innerHTML = `${troca}<div class="top-in">
+      <a class="brand" href="${DC.home(me.role, me)}">${DC.marca()}</a>
+      ${aqui ? `<span class="area ${aqui.cls}"><span aria-hidden="true">${aqui.ic}</span> ${aqui.selo}</span>` : ''}
+      <nav class="nav" aria-label="Menu da ${aqui ? DC.esc(aqui.selo.toLowerCase()) : 'área'}">${abas.map(([k, l]) => `<a href="#${k}" data-tab="${k}">${DC.esc(l)}</a>`).join('')}</nav>
+      <div class="who">${!me.isMind && me.isAdmin && location.pathname !== '/admin.html' ? '<a class="btn btn-sm btn-ghost" href="/admin.html">Central</a>' : ''}
         <button class="btn btn-sm btn-ghost" id="sair" title="${DC.esc(DC.telBonito(me.telefone))}">Sair</button><span id="meuAv">${DC.av(me.nome, me.foto_url)}</span></div></div>`;
     DC.$('#sair').onclick = DC.sair;
-    // gestor da Mind: troca de perfil com um toque, sem novo login (a mesma conta abre todas as áreas)
-    if (me.isMind && !DC.$('#trocaPerfil')) {
-      const ops = [['/cliente.html', 'Contratante'], ['/pro.html', 'Profissional'], ['/admin.html', 'Gestão'], ['/mind.html', 'Painel Mind']];
-      el.insertAdjacentHTML('afterend', `<nav class="troca" id="trocaPerfil" aria-label="Trocar de perfil"><span>Ver como</span>${ops.map(([h, n]) =>
-        `<a href="${h}" class="${location.pathname === h ? 'on' : ''}" ${location.pathname === h ? 'aria-current="page"' : ''}>${n}</a>`).join('')}</nav>`);
-    }
   };
+;
   // conversa entre a central e o contratante dentro de um pedido à central
   DC.chatNec = async (el, necId, souCentral) => {
     if (!el) return;

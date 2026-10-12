@@ -185,10 +185,6 @@ details.filtros[open] > summary { margin-bottom: 12px; }
 .alerta { border-left: 4px solid var(--coral); }
 
 /* troca de perfil do gestor da Mind */
-.troca { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: #E8F6F1; border-bottom: 1px solid #CDE9DF; overflow-x: auto; white-space: nowrap; font-size: 13px; }
-.troca span { color: #46636A; font-weight: 600; margin-right: 4px; }
-.troca a { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid #CDE9DF; color: #0E2B36; text-decoration: none; font-weight: 600; }
-.troca a.on { background: #0E2B36; border-color: #0E2B36; color: #fff; }
 
 /* detalhes clicáveis da gestão */
 .go { cursor: pointer; }
@@ -236,3 +232,21 @@ tr.det-mes > td { background: #F7FAFA; padding: 10px 12px 16px; }
 .bub.sis { align-self: center; max-width: 92%; background: #FFF6DD; color: var(--ink, #12303A); border: 1px solid #F1DFA6; text-align: center; font-weight: 600; font-size: 13px; }
 .av-edit { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .av.xl { width: 96px; height: 96px; font-size: 30px; }
+
+/* selo da área aberta (contratante, profissional, gestão, Mind) */
+.area { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 800; letter-spacing: .2px; white-space: nowrap; }
+.area.a-cli, .troca-seg a.on.a-cli { background: #DCEBFF; color: #123E7A; }
+.area.a-pro, .troca-seg a.on.a-pro { background: #D3F3E7; color: #0B5A45; }
+.area.a-adm, .troca-seg a.on.a-adm { background: #FFE7C2; color: #7A4300; }
+.area.a-mind, .troca-seg a.on.a-mind { background: #E8DEFF; color: #46238F; }
+.nav { border-left: 1px solid rgba(255,255,255,.14); padding-left: 12px; }
+/* barra do gestor Mind: fina, escura e separada do menu */
+.troca { display: flex; align-items: center; gap: 10px; padding: 5px 20px; background: #091C23; border-bottom: 1px solid rgba(255,255,255,.08); overflow-x: auto; white-space: nowrap; font-size: 12px; }
+.troca-l { color: #8FB0B6; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; font-size: 10.5px; }
+.troca-l b { color: #F6D27A; }
+.troca-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; background: rgba(255,255,255,.07); }
+.troca-seg a { padding: 3px 10px; border-radius: 999px; color: #C5DADD; text-decoration: none; font-weight: 700; font-size: 12px; }
+.troca-seg a:hover { color: #fff; background: rgba(255,255,255,.1); }
+.troca-seg a.on { box-shadow: 0 0 0 1px rgba(0,0,0,.1); }
+@media (max-width: 760px) { .nav { border-left: 0; padding-left: 0; } .area { font-size: 11.5px; padding: 5px 10px; } .troca { padding: 5px 12px; } .troca-l { display: none; } }
+@media (max-width: 520px) { .top-in .brand .wm { display: none; } .top-in .who { margin-left: auto; } }
