@@ -230,7 +230,7 @@
         <label class="f">Preferência<select class="in" id="gp"><option value="">Indiferente</option><option value="feminino">Mulher</option><option value="masculino">Homem</option></select></label>
         <label class="f">Orçamento (opcional)<input class="in" type="number" id="or" min="0" step="10" placeholder="R$ por dia ou total"></label>
       </div>
-      <label class="f">Endereço<input class="in" id="en" maxlength="300" value="${esc(u.endereco || '')}"></label>
+      <label class="f">Endereço do atendimento<small>rua, número, bairro · ou hospital e quarto</small><input class="in" id="en" maxlength="300" value="${esc(u.endereco || '')}"></label>
       <label class="f">Mais alguma coisa? (opcional)<textarea class="in" id="ob" maxlength="2000" style="min-height:70px"></textarea></label>
       <div class="acts"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-coral" id="env">Enviar para a central</button></div>`, { wide: true, semFoco: true });
     $$('#es [data-e]', m.el).forEach((b) => (b.onclick = () => { e = b.dataset.e; $$('#es [data-e]', m.el).forEach((x) => x.classList.toggle('on', x === b)); }));
@@ -242,6 +242,8 @@
         genero_pref: $('#gp', m.el).value || null, orcamento: +$('#or', m.el).value || null, observacoes: $('#ob', m.el).value.trim() };
       if (!row.paciente_nome) throw new Error('Informe quem vai receber o cuidado');
       if (!row.inicio) throw new Error('Informe quando precisa começar');
+      if (!row.endereco) throw new Error('Informe o endereço do atendimento');
+      if (!row.cidade) throw new Error('Informe a cidade');
       if (row.fim && row.fim < row.inicio) throw new Error('O fim precisa ser depois do início');
       const { data, error } = await sb.from('necessidades').insert(row).select('id,codigo').single();
       if (error) throw error;

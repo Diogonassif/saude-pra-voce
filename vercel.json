@@ -23,6 +23,10 @@
       ]
     },
     {
+      "source": "/lib/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
       "source": "/icons/(.*)",
       "headers": [
         {

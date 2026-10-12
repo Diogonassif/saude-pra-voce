@@ -122,7 +122,8 @@ export default handler(async (req, res) => {
       paciente_nome: n.paciente_nome, paciente_idade: n.paciente_idade, cuidados: n.cuidados, local_tipo: n.local_tipo,
       endereco: n.endereco, cidade: n.cidade, inicio: n.inicio, fim: n.fim, horas_dia: n.horas_dia,
     }, b), n.cliente_id, 'central', n.id);
-    await admin(`necessidades?id=eq.${n.id}`, { method: 'PATCH', body: { status: 'em_busca', updated_at: agora() } });
+    await admin(`necessidades?id=eq.${n.id}`, { method: 'PATCH', body: { status: 'em_busca', updated_at: agora(),
+      endereco: n.endereco || c.endereco || null, cidade: n.cidade || c.cidade || null } });
     sendEmail({ to: await emailDe(c.pro_id), subject: `A nossa central indicou você: ${resumo(c)}`,
       html: shell('Novo pedido pela central', `<p>${escH(resumo(c))} · você recebe <b>${brl(v.pro)}</b>.</p>`, { url: url + '/pro.html#pedidos', label: 'Ver e responder' }) });
     return send(res, 200, { ok: true, id: c.id, total_cliente: v.cliente, total_pro: v.pro });
