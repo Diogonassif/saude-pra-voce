@@ -1,7 +1,7 @@
 // Contratações: criar pelo catálogo, indicação da central, aceitar, recusar, cancelar, concluir e avisos.
 // Toda conta de dinheiro é feita aqui (valor do profissional + 15% Saúde Pra Você + 10% Mind, somados por cima).
 import { send, readJson, who, admin, one, isUuid, money, brl, fail, handler, appUrl, sendEmail, shell, escH,
-  emailDe, emailCentral, MODAL, taxas, calcular, diasDoPeriodo, partesMensais } from './_lib.js';
+  emailDe, emailCentral, MODAL, taxas, calcular, diasDoPeriodo, partesMensais, taxasCLT, calcularCLT } from './_lib.js';
 
 const dataOk = (s) => (/^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) ? s : null);
 const horaOk = (s) => (/^\d{2}:\d{2}$/.test(String(s || '')) ? s : null);
@@ -92,6 +92,8 @@ async function criarCLT(b, clienteId, origem, necessidadeId) {
   const jornada = txt(b.jornada, 200);
   if (!jornada) throw fail(400, 'Informe a jornada (ex.: 12x36 diurno, segunda a sexta das 7h às 16h)');
   const salario = +b.salario > 0 ? money(+b.salario) : null;
+  if (!salario) throw fail(400, 'Informe o salário mensal oferecido');
+  if (salario > 200000) throw fail(400, 'Salário muito alto: confira o valor (é por mês)');
   const inicio = dataOk(b.inicio) || hoje();
   const cli = await one(`profiles?id=eq.${clienteId}&select=nome`);
   const row = {
@@ -105,13 +107,15 @@ async function criarCLT(b, clienteId, origem, necessidadeId) {
   };
   if (!row.cidade) throw fail(400, 'Informe a cidade da vaga');
   const [c] = await admin('contratacoes', { method: 'POST', prefer: 'return=representation', body: row });
-  const t = await taxas();
+  // taxa de serviço (paga uma vez pela empresa quando o contrato é assinado); o profissional não paga nada
+  const t = await taxasCLT();
+  const v = calcularCLT(salario, t);
   await Promise.all([
     admin('contratacao_pro', { method: 'POST', body: { contratacao_id: c.id, valor_unit: 0, total: 0 } }),
-    admin('contratacao_cliente', { method: 'POST', body: { contratacao_id: c.id, valor_unit: 0, total: 0 } }),
-    admin('contratacao_split', { method: 'POST', body: { contratacao_id: c.id, taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: 0, debcare: 0, mind: 0 } }),
+    admin('contratacao_cliente', { method: 'POST', body: { contratacao_id: c.id, valor_unit: v.total, total: v.total } }),
+    admin('contratacao_split', { method: 'POST', body: { contratacao_id: c.id, taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: 0, debcare: v.debcare, mind: v.mind } }),
   ]);
-  return { c };
+  return { c, v };
 }
 
 // monta e grava uma contratação (usado pelo contratante no catálogo e pela central ao indicar)
@@ -162,11 +166,11 @@ export default handler(async (req, res) => {
   if (b.acao === 'criar') {
     if (me.role !== 'cliente' && !me.isAdmin) throw fail(403, 'Entre como contratante para contratar');
     if (b.tipo === 'clt') {
-      const { c } = await criarCLT(b, me.id, 'catalogo', null);
+      const { c, v } = await criarCLT(b, me.id, 'catalogo', null);
       sendEmail({ to: await emailDe(c.pro_id), subject: `Uma empresa quer contratar você (CLT): ${c.empresa_nome}`,
         html: shell('Proposta de emprego com carteira assinada', `<p><b>${escH(c.empresa_nome)}</b> tem interesse em contratar você como <b>${escH(c.clt.cargo)}</b> (CLT).</p><p>Jornada: ${escH(c.clt.jornada)}${c.clt.salario ? ' · salário oferecido ' + brl(c.clt.salario) + '/mês' : ''}.</p><p>Abra o app e diga se tem interesse: só então os contatos são liberados.</p>`,
           { url: url + '/pro.html#pedidos', label: 'Ver a proposta' }) });
-      return send(res, 200, { ok: true, id: c.id, codigo: c.codigo });
+      return send(res, 200, { ok: true, id: c.id, codigo: c.codigo, taxa: v.total });
     }
     const { c, v } = await criarContratacao(b, me.id, 'catalogo', null);
     sendEmail({ to: await emailDe(c.pro_id), subject: `Novo pedido: ${resumo(c)}`,
@@ -250,6 +254,8 @@ export default handler(async (req, res) => {
     const proPode = ehPro && c.fim <= hoje();
     if (!(ehCli || me.isAdmin || proPode)) throw fail(403, ehPro ? 'Você pode concluir a partir do último dia' : 'Sem acesso');
     if (c.status !== 'confirmado') throw fail(409, 'Só atendimentos pagos podem ser concluídos');
+    // vaga CLT: a empresa registra a contratação pagando a taxa de serviço (/api/pagar); só a central conclui direto
+    if (c.tipo === 'clt' && !me.isAdmin) throw fail(409, 'Para registrar a contratação, pague a taxa de serviço da Saúde Pra Você pelo botão "Contratado: pagar taxa".');
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'concluido', concluido_em: agora(), updated_at: agora() } });
     if (!ehCli) sendEmail({ to: await emailDe(c.cliente_id), subject: 'Atendimento concluído · avalie', html: shell('Atendimento concluído', `<p>Conte como foi com ${escH(c.pro_nome.split(' ')[0])}. Sua avaliação ajuda outras famílias.</p>`, { url: url + '/cliente.html#contratacoes', label: 'Avaliar' }) });
     return send(res, 200, { ok: true });

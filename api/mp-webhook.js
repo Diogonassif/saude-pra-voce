@@ -1,5 +1,5 @@
 // Aviso de pagamento do Mercado Pago. Nunca confia no corpo: consulta o pagamento na API com o token do profissional.
-import { send, readJson, admin, one, isUuid, handler, sendEmail, shell, escH, brl, emailDe, emailCentral, diasDoPeriodo, alocar } from './_lib.js';
+import { send, readJson, admin, one, isUuid, handler, sendEmail, shell, escH, brl, emailDe, emailCentral, diasDoPeriodo, alocar, env } from './_lib.js';
 
 export default handler(async (req, res) => {
   const b = req.method === 'POST' ? await readJson(req) : {};
@@ -12,10 +12,11 @@ export default handler(async (req, res) => {
   const pg = await one(`pagamentos?id=eq.${pgId}&select=*`);
   if (!pg) return send(res, 200, { ok: true });
   const c = await one(`contratacoes?id=eq.${pg.contratacao_id}&select=*`);
-  const conta = await one(`mp_contas?user_id=eq.${c.pro_id}&select=access_token`);
-  if (!conta || !conta.access_token) return send(res, 200, { ok: true });
+  // vaga CLT: a taxa é cobrada na conta da própria Saúde Pra Você; os atendimentos, na conta do profissional
+  const token = c.tipo === 'clt' ? env('MP_ACCESS_TOKEN') : ((await one(`mp_contas?user_id=eq.${c.pro_id}&select=access_token`)) || {}).access_token;
+  if (!token) return send(res, 200, { ok: true });
 
-  const r = await fetch('https://api.mercadopago.com/v1/payments/' + payId, { headers: { authorization: 'Bearer ' + conta.access_token } });
+  const r = await fetch('https://api.mercadopago.com/v1/payments/' + payId, { headers: { authorization: 'Bearer ' + token } });
   if (!r.ok) return send(res, 200, { ok: true });
   const pay = await r.json();
   if (String(pay.external_reference) !== pg.id) return send(res, 200, { ok: true });
@@ -23,6 +24,24 @@ export default handler(async (req, res) => {
 
   const st = pay.status; // approved, pending, rejected, refunded, charged_back...
   await admin(`pagamentos?id=eq.${pg.id}`, { method: 'PATCH', body: { mp_payment_id: payId, status: st, updated_at: new Date().toISOString() } });
+  // vaga CLT: taxa paga → contratação registrada
+  if (c.tipo === 'clt') {
+    if (st === 'approved' && pg.status !== 'approved' && c.status === 'confirmado') {
+      const agora = new Date().toISOString();
+      await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'concluido', pago_em: agora, concluido_em: agora, updated_at: agora } });
+      if (c.necessidade_id) await admin(`necessidades?id=eq.${c.necessidade_id}`, { method: 'PATCH', body: { status: 'atendida', updated_at: agora } });
+      const cargo = escH((c.clt && c.clt.cargo) || 'vaga CLT');
+      sendEmail({ to: await emailDe(c.cliente_id), subject: `Contratação registrada · vaga CLT #${c.codigo}`,
+        html: shell('Taxa paga, contratação registrada', `<p>Recebemos a taxa de serviço de <b>${brl(pg.valor_total)}</b> pela contratação de ${escH(c.pro_nome)} (${cargo}). Obrigado por usar a Saúde Pra Você!</p>`) });
+      sendEmail({ to: await emailDe(c.pro_id), subject: `Parabéns pela contratação · ${c.empresa_nome || 'vaga CLT'}`,
+        html: shell('Contratação registrada', `<p>${escH(c.empresa_nome || c.cliente_nome)} registrou a sua contratação como ${cargo} (CLT). Boa parceria!</p>`) });
+      sendEmail({ to: await emailCentral(), subject: `Taxa CLT paga #${c.codigo}: ${brl(pg.valor_total)}`,
+        html: shell('Taxa de contratação CLT recebida', `<p>${escH(c.empresa_nome || c.cliente_nome)} → ${escH(c.pro_nome)} · ${cargo}. Taxa ${brl(pg.valor_total)} (Saúde Pra Você ${brl(pg.debcare)} · Mind ${brl(pg.mind)}).</p>`) });
+    }
+    if (['refunded', 'charged_back'].includes(st) && pg.status === 'approved')
+      sendEmail({ to: await emailCentral(), subject: `Estorno da taxa CLT #${c.codigo}`, html: shell('Taxa estornada', `<p>${escH(c.empresa_nome || c.cliente_nome)}: ${brl(pg.valor_total)} (${escH(st)}).</p>`) });
+    return send(res, 200, { ok: true });
+  }
   // contrato fixo: marca a parcela como paga
   let parc = null;
   if (st === 'approved' && pg.status !== 'approved' && pg.parcela) {

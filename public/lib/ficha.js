@@ -83,8 +83,8 @@
         aviso = ({
           solicitado: souPro ? `<div class="banner info">👔 <b>${emp}</b> tem interesse em contratar você com carteira assinada (CLT). Veja a vaga e responda: se tiver interesse, o seu contato é liberado para a empresa.</div>`
             : `<div class="banner info">Proposta de emprego enviada para ${pn}. Quando ${pn} responder que tem interesse, o contato aparece aqui.</div>`,
-          confirmado: `<div class="banner ok">✅ ${souPro ? 'Você confirmou interesse na vaga.' : pn + ' tem interesse na vaga!'} Combinem a entrevista e a admissão pelo contato abaixo ou pela conversa.</div>`,
-          concluido: '<div class="banner ok">Contratação CLT concluída. Boa parceria!</div>',
+          confirmado: `<div class="banner ok">✅ ${souPro ? 'Você confirmou interesse na vaga.' : pn + ' tem interesse na vaga!'} Combinem a entrevista e a admissão pelo contato abaixo ou pela conversa.${souPro ? '' : ` Quando o contrato for assinado, toque em “Contrato assinado” e pague a taxa de serviço${v && +v.total > 0 ? ' (' + brl(v.total, 2) + ')' : ''}, uma única vez.`}</div>`,
+          concluido: `<div class="banner ok">Contratação CLT registrada${souPro ? '' : ' e taxa de serviço paga'}. Boa parceria!</div>`,
           recusado: `<div class="banner">${souPro ? 'Você respondeu que não tem interesse.' : pn + ' não tem interesse nesta vaga agora.'}${c.motivo ? ' Motivo: ' + esc(c.motivo) : ''}</div>`,
           cancelado: '<div class="banner">Proposta cancelada.</div>',
         })[c.status] || '';
@@ -98,11 +98,13 @@
             <div class="col" style="gap:4px"><span class="tiny mute">SALÁRIO</span><b>${V.salario ? brl(V.salario, 2) + ' / mês' : 'A combinar'}</b>${V.beneficios ? `<span class="small">Benefícios: ${esc(V.beneficios)}</span>` : ''}</div>
             <div class="col" style="gap:4px"><span class="tiny mute">ONDE</span><b>${esc(DC.LOCAL[c.local_tipo])}</b><span class="small">${esc([c.endereco, c.cidade].filter(Boolean).join(', '))}</span></div>
             ${c.notas ? `<div class="col" style="gap:4px"><span class="tiny mute">OBSERVAÇÕES</span><span class="small" style="white-space:pre-wrap">${esc(c.notas)}</span></div>` : ''}
-          </div><p class="tiny mute">Contratação direta entre a empresa e o profissional, com carteira assinada. O app só aproxima vocês: não há pagamento pela Saúde Pra Você.</p></div>` : '';
+          </div>${souCli && v && +v.total > 0 ? `<div class="resumo-total"><span class="small mute">Taxa de serviço Saúde Pra Você · paga uma única vez, quando o contrato for assinado</span><span class="price">${brl(v.total, 2)}</span></div>` : ''}${souAdm && sp ? `<div class="grid2"><div class="card flat"><span class="small mute">Taxa da empresa</span><div class="price">${brl(+sp.debcare + +sp.mind, 2)}</div></div><div class="card flat"><span class="small mute">Saúde Pra Você (${+sp.taxa_debcare_pct}%) · Mind (${+sp.taxa_mind_pct}%)</span><div class="price">${brl(sp.debcare, 2)} · ${brl(sp.mind, 2)}</div></div></div>` : ''}<p class="tiny mute">Contratação direta entre a empresa e o profissional, com carteira assinada. ${souPro ? 'Você não paga nada à Saúde Pra Você.' : 'A empresa paga à Saúde Pra Você uma taxa única de serviço quando o contrato é assinado; o profissional não paga nada.'}</p></div>` : '';
       const cltBtns = clt ? `<div class="row">
           ${souPro && c.status === 'solicitado' ? '<button class="btn btn-green" id="aceitar">Tenho interesse</button><button class="btn btn-ghost" id="recusar">Não tenho interesse</button>' : ''}
           ${(souCli || souAdm) && c.status === 'solicitado' ? '<button class="btn btn-red" id="cancelar">Cancelar proposta</button>' : ''}
-          ${(souCli || souAdm) && c.status === 'confirmado' ? '<button class="btn btn-green" id="concluir">Marcar como contratado</button><button class="btn btn-ghost" id="cancelar">Não deu certo</button>' : ''}
+          ${souCli && c.status === 'confirmado' ? `<button class="btn btn-green" id="pagarClt">Contrato assinado: pagar taxa${v && +v.total > 0 ? ' · ' + brl(v.total, 2) : ''}</button>` : ''}
+          ${souAdm && c.status === 'confirmado' ? '<button class="btn btn-green" id="concluir">Marcar como contratado (sem cobrar)</button>' : ''}
+          ${(souCli || souAdm) && c.status === 'confirmado' ? '<button class="btn btn-ghost" id="cancelar">Não deu certo</button>' : ''}
         </div>` : '';
       const fimPassou = c.fim <= DC.hoje();
       const avaliar = !clt && souCli && c.status === 'concluido' && !av
@@ -179,6 +181,7 @@
       act('#recusarValor', async () => { await DC.api('/api/contratar', { acao: 'recusar_valor', id }); DC.toast('Proposta recusada'); render(); });
       act('#trocarPro', async () => trocarPro(c));
       act('#pagar', async () => { const r = await DC.api('/api/pagar', { contratacao_id: id }); location.href = r.url; });
+      act('#pagarClt', async () => { if (!(await DC.confirm(`Confirmar que o contrato com ${c.pro_nome.split(' ')[0]} foi assinado? Você vai para o Mercado Pago pagar a taxa de serviço${v && +v.total > 0 ? ' de ' + brl(v.total, 2) : ''} (Pix ou cartão), uma única vez.`, 'Pagar taxa'))) return; const r = await DC.api('/api/pagar', { contratacao_id: id }); location.href = r.url; });
       let nota = 0;
       $$('#st [data-n]', m.el).forEach((b) => (b.onclick = () => { nota = +b.dataset.n; $$('#st [data-n]', m.el).forEach((x) => x.classList.toggle('btn-ghost', +x.dataset.n !== nota)); $('#avs', m.el).disabled = false; }));
       act('#avs', async () => {

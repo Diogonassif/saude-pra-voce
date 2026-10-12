@@ -95,6 +95,15 @@ export async function taxas() {
   const num = (v, d) => { const n = +v; return isFinite(n) && n >= 0 && n <= 100 ? n : d; };
   return { debcare: num(await config('taxa_debcare', 15), 15), mind: num(await config('taxa_mind', 10), 10) };
 }
+// vaga CLT: taxa única sobre o salário mensal oferecido (Saúde Pra Você 20% + Mind 10%, somados)
+export async function taxasCLT() {
+  const num = (v, d) => { const n = +v; return isFinite(n) && n >= 0 && n <= 100 ? n : d; };
+  return { debcare: num(await config('taxa_clt', 20), 20), mind: (await taxas()).mind };
+}
+export function calcularCLT(salario, t) {
+  const debcare = money(+salario * t.debcare / 100), mind = money(+salario * t.mind / 100);
+  return { debcare, mind, total: money(debcare + mind) };
+}
 // valor do profissional + taxas somadas por cima (soma simples). A Mind fica com o centavo do arredondamento.
 export function calcular(base, quantidade, t) {
   const unitCli = money(base * (1 + (t.debcare + t.mind) / 100));

@@ -117,14 +117,15 @@
       <div class="col" style="gap:6px"><b class="small">Tipo de contratação</b><div class="grid3" id="tp">
         <button type="button" class="opt ${st.tipo === 'avulso' ? 'on' : ''}" data-t="avulso"><b>Atendimento avulso</b><span>Alguns dias ou semanas, para a família. Paga tudo de uma vez.</span></button>
         <button type="button" class="opt ${st.tipo === 'fixo' ? 'on' : ''}" data-t="fixo"><b>🏥 Contrato fixo</b><span>Clínicas e empresas: o profissional fixo por meses, com pagamento mensal.</span></button>
-        ${ed ? '' : `<button type="button" class="opt ${st.tipo === 'clt' ? 'on' : ''}" data-t="clt"><b>👔 Contratar CLT</b><span>Sua empresa quer contratar com carteira assinada. O app só aproxima vocês; sem pagamento aqui.</span></button>`}</div></div>
+        ${ed ? '' : `<button type="button" class="opt ${st.tipo === 'clt' ? 'on' : ''}" data-t="clt"><b>👔 Contratar CLT</b><span>Sua empresa contrata com carteira assinada. Taxa única de serviço, paga só quando o contrato for assinado.</span></button>`}</div></div>
       <div class="col" id="cltBox" style="gap:10px">
-        <div class="banner info small">O profissional recebe a sua proposta de emprego e responde se tem interesse. Se tiver, os contatos são liberados para vocês combinarem entrevista, salário e admissão direto com ele.</div>
+        <div class="banner info small">O profissional recebe a sua proposta de emprego e responde se tem interesse. Se tiver, os contatos são liberados para vocês combinarem entrevista e admissão direto com ele. Quando o contrato for assinado, você registra no app e paga a taxa de serviço da Saúde Pra Você, uma única vez.</div>
         <div class="grid2"><label class="f">Cargo / função<input class="in" id="cgo" maxlength="120" value="${esc(DC.espec(p.especialidade))}"></label>
-          <label class="f">Salário oferecido (opcional)<input class="in" id="sal" type="number" min="0" step="50" placeholder="R$ por mês"></label>
+          <label class="f">Salário mensal oferecido<input class="in" id="sal" type="number" min="0" step="50" placeholder="R$ por mês"></label>
           <label class="f">Jornada / escala<input class="in" id="jor" maxlength="200" placeholder="Ex.: 12x36 diurno · seg a sex 7h–16h"></label>
           <label class="f">Início previsto<input class="in" type="date" id="cini" min="${hoje}" value="${hoje}"></label></div>
-        <label class="f">Benefícios (opcional)<input class="in" id="ben" maxlength="1000" placeholder="Ex.: VT, VR, plano de saúde"></label></div>
+        <label class="f">Benefícios (opcional)<input class="in" id="ben" maxlength="1000" placeholder="Ex.: VT, VR, plano de saúde"></label>
+        <div class="resumo-total" id="cltTx"></div></div>
       <div class="col" id="fixoBox" style="gap:10px">
         <div class="grid2" style="grid-template-columns:1fr 220px"><label class="f">Clínica ou empresa<input class="in" id="emp" maxlength="120" value="${esc(ed ? ed.empresa_nome || '' : (u.empresa_nome || ''))}" placeholder="Ex.: Clínica Bem Viver"></label>
           <label class="f">CNPJ (opcional)<input class="in" id="cnpj" inputmode="numeric" maxlength="18" value="${esc(ed ? ed.empresa_cnpj || '' : (u.empresa_cnpj || ''))}" placeholder="00.000.000/0000-00"></label></div>
@@ -169,6 +170,7 @@
       $('#pnL', m.el).textContent = fixo ? 'Pacientes ou setor' : 'Nome';
       $('#pn', m.el).placeholder = fixo ? 'Ex.: Pacientes da ala de internação' : 'Ex.: Dona Lúcia';
       $('#endDica', m.el).textContent = st.local === 'hospital' || st.local === 'clinica' ? 'nome do hospital, quarto e leito' : 'rua, número, bairro';
+      if (clt) { const sal = +$('#sal', m.el).value || 0, pct = DC.taxaCLT; $('#cltTx', m.el).innerHTML = `<span class="small mute">Taxa de serviço Saúde Pra Você · paga uma única vez, só quando o contrato for assinado</span><span class="price">${sal > 0 && pct ? brl(Math.round(sal * pct) / 100, 2) : '—'}</span><span class="small mute">${pct ? pct + '% de um salário mensal' : ''}${sal > 0 ? ' (' + brl(sal, 2) + ')' : ' · informe o salário'}. Nada é cobrado do profissional.</span>`; }
       const v = val();
       const parts = fixo && v.dias.length ? DC.partesMensais(v.ini, v.fim, st.semana, st.mod, v.hd) : [];
       if (fixo && v.dias.length) {
@@ -197,6 +199,8 @@
     }));
     $('#ini', m.el).onchange = () => { if (st.tipo === 'fixo') poeMeses(); if ($('#fim', m.el).value < $('#ini', m.el).value) $('#fim', m.el).value = $('#ini', m.el).value; $('#fim', m.el).min = $('#ini', m.el).value; draw(); };
     ['#fim', '#hd'].forEach((s) => ($(s, m.el).oninput = draw));
+    $('#sal', m.el).oninput = draw;
+    if (DC.taxaCLT == null) sb.rpc('taxa_clt_cliente').then(({ data }) => { if (data != null) { DC.taxaCLT = +data; draw(); } });
     draw();
     $('#env', m.el).onclick = () => DC.busy($('#env', m.el), async () => {
       if (st.tipo === 'clt') {
@@ -204,6 +208,7 @@
           cargo: $('#cgo', m.el).value.trim(), salario: +$('#sal', m.el).value || null, jornada: $('#jor', m.el).value.trim(), inicio: $('#cini', m.el).value,
           beneficios: $('#ben', m.el).value.trim(), local_tipo: st.local, endereco: $('#en', m.el).value.trim(), cidade: $('#ci', m.el).value.trim(), notas: $('#no', m.el).value.trim() };
         if (!cb.empresa_nome) throw new Error('Informe o nome da empresa');
+        if (!(cb.salario > 0)) throw new Error('Informe o salário mensal oferecido');
         if (!cb.jornada) throw new Error('Informe a jornada ou escala');
         if (!cb.cidade) throw new Error('Informe a cidade da vaga');
         const r = await DC.api('/api/contratar', cb);
@@ -246,7 +251,7 @@
     const tot = (c) => { const v = Array.isArray(c.contratacao_cliente) ? c.contratacao_cliente[0] : c.contratacao_cliente; return v ? brl(v.total, 2) : '—'; };
     const linha = (c) => `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
       ${DC.av(c.pro_nome, DC.foto(c.pro_id))}<span class="grow"><b>${esc(c.pro_nome)}</b> <span class="small mute">· ${esc(DC.espec(c.especialidade))}</span>${c.tipo === 'fixo' ? ' <span class="tag t-blue">Contrato fixo</span>' : c.tipo === 'clt' ? ' <span class="tag t-blue">Vaga CLT</span>' : ''}<br><span class="small mute">${c.tipo !== 'avulso' && c.empresa_nome ? esc(c.empresa_nome) + ' · ' : ''}${DC.periodo(c)} · ${esc(c.paciente_nome)} · ${esc(DC.LOCAL[c.local_tipo])}</span></span>
-      <span style="text-align:right">${DC.stTag(c.status, c.tipo)}<br><b class="small">${c.tipo === 'clt' ? 'Sem pagamento' : tot(c)}</b></span></button>`;
+      <span style="text-align:right">${DC.stTag(c.status, c.tipo)}<br><b class="small">${c.tipo === 'clt' ? (c.status === 'concluido' ? 'Taxa paga' : 'Taxa ' + tot(c)) : tot(c)}</b></span></button>`;
     const bloco = (tit, F, vazio, extra) => { const X = L.filter(F); return X.length || vazio ? `<div class="card col ${extra || ''}"><h2>${tit}</h2>${X.length ? `<div class="list">${X.map(linha).join('')}</div>` : `<p class="small mute">${vazio}</p>`}</div>` : ''; };
     app.innerHTML = `<div class="head"><div><h1>Minhas contratações</h1><p>Acompanhe pedidos, pague pelo app e converse com o profissional.</p></div><a class="btn" href="#catalogo">Contratar profissional</a></div>
       ${bloco('Pague para confirmar', (c) => c.status === 'aceito', '', 'alerta')}

@@ -396,6 +396,7 @@
         <div class="card col"><h2>Saúde Pra Você</h2><label class="f">Taxa Saúde Pra Você (%)<input class="in" id="td" type="number" min="0" max="100" step="0.5" value="${+C.taxa_debcare}"></label></div>
         <div class="card col"><h2>Mind (gestora da plataforma)</h2><label class="f">Taxa Mind (%)<input class="in" id="tm" type="number" min="0" max="100" step="0.5" value="${+C.taxa_mind}"></label></div>
         <div class="card col"><h2>Exemplo</h2><p class="small" id="ex"></p></div>
+        <div class="card col"><h2>👔 Vaga CLT</h2><label class="f">Taxa Saúde Pra Você sobre 1 salário (%)<small>A empresa paga uma única vez, quando o contrato é assinado; a taxa Mind acima é somada por cima</small><input class="in" id="tc" type="number" min="0" max="100" step="0.5" value="${+(C.taxa_clt ?? 20)}"></label><p class="small" id="exc"></p></div>
         <div class="card col"><h2>Central</h2>
           <label class="f">WhatsApp da central<small>aparece para contratantes e no "esqueci a senha"</small><input class="in" id="cw" value="${esc(DC.telBonito(C.central_whatsapp || ''))}" placeholder="(16) 99999-0000"></label>
           <label class="f">E-mail da central<small>recebe aviso de novos pedidos (opcional)</small><input class="in" id="ce" type="email" value="${esc(C.central_email || '')}"></label></div>
@@ -403,13 +404,14 @@
       </div>
       <button class="btn" id="sv" style="align-self:flex-start">Salvar</button>`;
     const ex = () => { const d = +$('#td').value || 0, m = +$('#tm').value || 0; $('#ex').innerHTML = `Profissional pede <b>R$ 100</b> → contratante vê <b>${brl(100 * (1 + (d + m) / 100), 2)}</b> · Saúde Pra Você ${brl(d, 2)} · Mind ${brl(m, 2)}`; };
-    $('#td').oninput = ex; $('#tm').oninput = ex; ex();
+    const exc = () => { const c = +$('#tc').value || 0, m = +$('#tm').value || 0; $('#exc').innerHTML = `Salário de <b>R$ 3.000</b> → empresa paga <b>${brl(3000 * (c + m) / 100, 2)}</b> · Saúde Pra Você ${brl(3000 * c / 100, 2)} · Mind ${brl(3000 * m / 100, 2)}`; };
+    $('#td').oninput = ex; $('#tm').oninput = () => { ex(); exc(); }; $('#tc').oninput = exc; ex(); exc();
     $('#sv').onclick = () => DC.busy($('#sv'), async () => {
       const adm = $('#adm').value.split(/\n|,|;/).map((x) => DC.tel(x)).filter(Boolean);
       if (!adm.length) throw new Error('Mantenha ao menos um celular da equipe');
       const cw = $('#cw').value.trim() ? DC.tel($('#cw').value) : '';
       if (cw === null) throw new Error('WhatsApp da central inválido');
-      const vals = [['taxa_debcare', +$('#td').value], ['taxa_mind', +$('#tm').value], ['central_whatsapp', cw], ['central_email', $('#ce').value.trim()], ['admins', adm]];
+      const vals = [['taxa_debcare', +$('#td').value], ['taxa_mind', +$('#tm').value], ['taxa_clt', +$('#tc').value], ['central_whatsapp', cw], ['central_email', $('#ce').value.trim()], ['admins', adm]];
       for (const [k, v] of vals) {
         const { error } = await sb.from('config').upsert({ key: k, value: v, updated_at: new Date().toISOString() }); if (error) throw error;
       }
