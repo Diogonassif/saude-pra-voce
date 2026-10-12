@@ -254,3 +254,9 @@ tr.det-mes > td { background: #F7FAFA; padding: 10px 12px 16px; }
 .nav.so1 { visibility: hidden; }            /* uma aba só (Painel Mind): não precisa de menu */
 .nav.semdiv { border-left: 0; padding-left: 0; }
 @media (max-width: 520px) { .hide-m { display: none; } }
+
+/* campo de senha com botão de olho */
+.pw-wrap { position: relative; display: block; }
+.pw-wrap > input { width: 100%; padding-right: 52px; }
+.pw-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border: 0; background: none; color: #5E7C84; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.pw-eye:hover { background: #EEF4F5; color: #0E2B36; }

@@ -74,13 +74,13 @@ ${cta ? `<p style="margin:20px 0 0"><a href="${escH(cta.url)}" style="background
 export async function sendEmail({ to, subject, html }) {
   const key = env('RESEND_API_KEY');
   const list = [].concat(to).filter(Boolean);
-  if (!key || !list.length) { console.log('[email não enviado]', subject, list.join(',')); return null; }
+  if (!key || !list.length) { console.log('[email não enviado]', subject, list.join(',')); return false; }
   try {
     const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
       body: JSON.stringify({ from: env('EMAIL_FROM') || 'Saúde Pra Você <nao-responda@mindfytech.com>', to: list, subject, html }) });
-    if (!r.ok) console.log('[email falhou]', r.status, await r.text());
-  } catch (e) { console.log('[email erro]', e.message); }
-  return null;
+    if (!r.ok) { console.log('[email falhou]', r.status, await r.text()); return false; }
+    return true;
+  } catch (e) { console.log('[email erro]', e.message); return false; }
 }
 export async function emailDe(userId) { const p = await one(`profiles?id=eq.${userId}&select=email`); return p ? p.email : null; }
 export async function emailCentral() { const v = await config('central_email', ''); return typeof v === 'string' && v.includes('@') ? v : null; }

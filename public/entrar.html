@@ -119,10 +119,24 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   $('#tel').oninput = (e) => { if (/[@a-z]/i.test(e.target.value)) return; const d = e.target.value.replace(/\D/g, '').slice(0, 11); e.target.value = d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0, 2)}) ${d.slice(2)}` : d; };
 
   $('#esqueci').onclick = () => {
-    const link = DC.cfg && DC.cfg.central_whatsapp ? DC.wa(DC.cfg.central_whatsapp, 'Olá! Esqueci minha senha da Saúde Pra Você. Meu celular é ' + $('#tel').value) : null;
-    DC.modal(`<h2>Esqueci a senha</h2><p>Fale com a nossa central pelo WhatsApp. Conferimos que o celular é seu e mandamos uma senha nova.</p>
-      <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button>${link ? `<a class="btn" href="${DC.esc(link)}" target="_blank" rel="noopener">Falar com a central</a>` : ''}</div>`);
+    const wa = DC.cfg && DC.cfg.central_whatsapp ? DC.wa(DC.cfg.central_whatsapp, 'Olá! Esqueci minha senha da Saúde Pra Você. Meu celular é ' + $('#tel').value) : null;
+    const m = DC.modal(`<h2>Esqueci a senha</h2>
+      <p class="small">Digite o celular ou o e-mail da sua conta. Mandamos um link para o <b>e-mail cadastrado</b> e você cria uma senha nova sozinho, na hora.</p>
+      <label class="f">Celular ou e-mail<input class="in" id="rcLogin" autocomplete="username" value="${DC.esc($('#tel').value)}" placeholder="(16) 99999-0000 ou seu@email.com"></label>
+      <div id="rcMsg"></div>
+      <div class="acts"><button class="btn btn-ghost" data-close>Fechar</button><button class="btn" id="rcOk">Enviar link por e-mail</button></div>
+      <p class="tiny mute" id="rcAlt">Sua conta não tem e-mail cadastrado? ${wa ? `<a href="${DC.esc(wa)}" target="_blank" rel="noopener">Fale com a central pelo WhatsApp</a>` : 'Fale com a nossa central pelo WhatsApp'} e depois cadastre um e-mail em Conta.</p>`);
+    $('#rcOk', m.el).onclick = () => DC.busy($('#rcOk', m.el), async () => {
+      const login = $('#rcLogin', m.el).value.trim();
+      if (!login) throw new Error('Digite o celular ou o e-mail');
+      const r = await fetch('/api/recuperar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acao: 'pedir', login }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Não deu para enviar agora');
+      $('#rcMsg', m.el).innerHTML = `<div class="banner ok">📧 ${DC.esc(j.msg)}</div>`;
+      $('#rcOk', m.el).textContent = 'Enviar de novo';
+    });
   };
+
   // WhatsApp da central (lido sem login pela configuração pública não é possível; tenta e segue sem)
   sb.from('config').select('key,value').eq('key', 'central_whatsapp').then((r) => { DC.cfg = Object.fromEntries(((r && r.data) || []).map((x) => [x.key, x.value])); });
 

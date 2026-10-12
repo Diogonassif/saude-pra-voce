@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova senha · Saúde Pra Você</title>
+<meta name="theme-color" content="#0E2B36">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lib/dc.css">
+<style>
+body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 60%, #08202A 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.box { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 18px; }
+.box .brand { justify-content: center; font-size: 30px; }
+.box .brand .mk svg { width: 40px; height: 40px; }
+.lead { color: #C5DADD; text-align: center; font-size: 15px; }
+.papel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.papel .opt { align-items: flex-start; min-height: 130px; }
+.papel .opt svg { margin-bottom: 6px; }
+#vidBox video { width: 100%; max-width: 360px; align-self: center; aspect-ratio: 9 / 16; border-radius: 18px; background: #0E2B36; }
+#vidBox .seg2 { display: flex; gap: 8px; } #vidBox .seg2 button { flex: 1; }
+</style>
+</head>
+<body>
+<main class="box">
+  <a class="brand" href="/" id="marca"></a>
+  <p class="lead">Crie uma senha nova para a sua conta.</p>
+  <section class="card col" id="box">
+    <h2>Senha nova</h2>
+    <form id="form" class="col">
+      <label class="f">Senha nova<small>mínimo de 6 caracteres</small><input class="in" id="s1" type="password" autocomplete="new-password" minlength="6" required></label>
+      <label class="f">Repita a senha nova<input class="in" id="s2" type="password" autocomplete="new-password" minlength="6" required></label>
+      <button class="btn btn-block" id="go" type="submit">Salvar senha nova</button>
+    </form>
+    <p class="small mute" style="text-align:center"><a href="/entrar.html">Voltar para entrar</a></p>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/lib/config.js"></script>
+<script src="/lib/dc.js"></script>
+<script>
+(function () {
+  const { $ } = DC;
+  $('#marca').innerHTML = DC.marca();
+  const token = new URLSearchParams(location.search).get('t') || '';
+  if (!token) $('#box').innerHTML = '<h2>Link incompleto</h2><p class="small">Abra o link direto do e-mail ou peça um novo em <b>Esqueci a senha</b>.</p><a class="btn btn-block" href="/entrar.html">Ir para entrar</a>';
+  $('#form') && ($('#form').onsubmit = (e) => {
+    e.preventDefault();
+    DC.busy($('#go'), async () => {
+      const a = $('#s1').value;
+      if (a.length < 6) throw new Error('A senha precisa ter pelo menos 6 caracteres');
+      if (a !== $('#s2').value) throw new Error('As duas senhas não estão iguais');
+      const r = await fetch('/api/recuperar', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acao: 'redefinir', token, senha: a }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Não deu para trocar a senha agora');
+      $('#box').innerHTML = '<h2>Senha trocada ✅</h2><p class="small">Pronto! Agora entre com o seu celular (ou e-mail) e a senha nova.</p><a class="btn btn-block" href="/entrar.html">Entrar</a>';
+    });
+  });
+})();
+</script>
+</body>
+</html>
