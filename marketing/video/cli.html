@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><link rel="stylesheet" href="engine.css"></head>
+<body data-total="45">
+<div id="stage">
+  <div class="blob" style="width:700px;height:700px;background:#2BB59A;left:-280px;top:360px"></div>
+  <div class="blob" style="width:600px;height:600px;background:#7FE0C8;right:-260px;bottom:260px;opacity:.15"></div>
+  <div class="top">
+    <svg viewBox="0 0 64 64" width="92" height="92"><rect x="1" y="1" width="62" height="62" rx="15" fill="#0E2B36" stroke="rgba(255,255,255,.25)" stroke-width="2"/><path d="M32 50C18 41 12 33 12 25c0-6.5 5-11 10.8-11 4.2 0 7.4 2.4 9.2 5.6C33.8 16.4 37 14 41.2 14 47 14 52 18.5 52 25c0 8-6 16-20 25z" fill="#2BB59A"/><path d="M32 25v12M26 31h12" stroke="#fff" stroke-width="4.5" stroke-linecap="round"/></svg>
+    <span class="wm">Saúde <b>Pra Você</b></span><span class="aud">para famílias</span>
+  </div>
+
+  <!-- 1. gancho -->
+  <section class="scene" data-s="0" data-e="5" style="justify-content:center">
+    <div class="kicker" data-in="0.2">Em casa ou no hospital</div>
+    <h1 data-in="0.5">Cuidado de confiança</h1>
+    <h1 data-in="1.2"><em>para quem<br>você ama.</em></h1>
+    <p class="lead" data-in="2.2">Contrate cuidadores, técnicos de enfermagem, enfermeiros e acompanhantes pelo app.</p>
+  </section>
+
+  <!-- 2. catálogo -->
+  <section class="scene" data-s="5" data-e="12">
+    <div class="kicker" data-in="0.1">Você escolhe</div>
+    <h2 data-in="0.3">Veja os profissionais e <em>escolha quem cuida</em>.</h2>
+    <div class="chips" data-in="0.8"><span class="chip" data-on="1.2">Cuidador(a)</span><span class="chip">Técnico(a)</span><span class="chip">Enfermeiro(a)</span><span class="chip">Acompanhante</span></div>
+    <div class="card" data-in="1.4" data-fx="right">
+      <div class="pro"><div class="av">MC</div><div><div class="n">Márcia C. <span class="selo">✓ Selo verificado</span></div><div class="s">Cuidadora · 10 anos · idosos e Alzheimer</div></div></div>
+      <div class="precos"><div><span>Por hora</span><b>R$ 50</b></div><div><span>Plantão 12h</span><b>R$ 450</b></div><div><span>Plantão 24h</span><b>R$ 800</b></div></div>
+    </div>
+    <div class="card" data-in="2.2" data-fx="right">
+      <div class="pro"><div class="av" style="background:#FDF0CF;color:#7A4E00">RT</div><div><div class="n">Rafael T. <span class="selo">✓ Selo verificado</span></div><div class="s">Técnico de enfermagem · COREN conferido</div></div></div>
+    </div>
+  </section>
+
+  <!-- 3. flexibilidade -->
+  <section class="scene" data-s="12" data-e="19">
+    <div class="kicker" data-in="0.1">Do seu jeito</div>
+    <h2 data-in="0.3">Algumas horas, plantões ou <em>semanas inteiras</em>.</h2>
+    <div class="phone" data-in="0.9" data-fx="pop" style="display:flex;flex-direction:column;gap:24px">
+      <div class="seg"><div data-on="1.6">Por hora</div><div data-on="99">Plantão 12h</div><div>Plantão 24h</div></div>
+      <div style="font-size:28px;font-weight:700;color:#5E7C84">Dias da semana</div>
+      <div class="seg" style="gap:10px"><div data-on="2.2">Seg</div><div data-on="2.35">Ter</div><div data-on="2.5">Qua</div><div data-on="2.65">Qui</div><div data-on="2.8">Sex</div><div>Sáb</div><div>Dom</div></div>
+      <div style="font-size:28px;font-weight:700;color:#5E7C84">Onde</div>
+      <div class="seg"><div data-on="3.4">Residência</div><div>Hospital</div><div>Clínica</div></div>
+    </div>
+  </section>
+
+  <!-- 4. preço final -->
+  <section class="scene" data-s="19" data-e="25.5" style="justify-content:center">
+    <div class="kicker" data-in="0.1">Sem surpresa</div>
+    <h2 data-in="0.3">O <em>preço final</em> aparece antes de você pedir.</h2>
+    <div class="card" data-in="1.0" data-fx="pop">
+      <div class="row" style="justify-content:space-between;font-size:36px;font-weight:700"><span>3 noites · plantão 12h</span><span>3 × R$ 450</span></div>
+      <div class="tot" style="margin-top:26px"><span>Total a pagar pelo app</span><b data-count="1350" data-at="1.6" data-d="1.4" data-dec="2">R$ 0,00</b></div>
+    </div>
+    <p class="lead" data-in="2.6"><b>Você só paga depois que o profissional aceitar.</b> Pix ou cartão, pelo app.</p>
+  </section>
+
+  <!-- 5. confiança -->
+  <section class="scene" data-s="25.5" data-e="32.5" style="justify-content:center">
+    <div class="kicker" data-in="0.1">Confiança em cada etapa</div>
+    <h2 data-in="0.3">Segurança para você e para <em>quem você ama</em>.</h2>
+    <div class="lista">
+      <div class="item" data-in="0.9" data-fx="left"><div class="ck">✓</div><div>COREN conferido pela nossa central<small>Para técnicos e enfermeiros</small></div></div>
+      <div class="item" data-in="1.4" data-fx="left"><div class="ck">✓</div><div>Selo verificado e documentos<small>Identidade e antecedentes</small></div></div>
+      <div class="item" data-in="1.9" data-fx="left"><div class="ck">✓</div><div>Pagamento seguro pelo app<small>Nada de dinheiro na mão</small></div></div>
+      <div class="item" data-in="2.4" data-fx="left"><div class="ck">✓</div><div>Avaliações de outras famílias<small>Escolha com quem já foi bem avaliado</small></div></div>
+    </div>
+  </section>
+
+  <!-- 6. central -->
+  <section class="scene" data-s="32.5" data-e="38">
+    <div class="kicker" data-in="0.1">Não achou?</div>
+    <h2 data-in="0.3">A nossa <em>central encontra</em> para você.</h2>
+    <div class="col" style="display:flex;flex-direction:column;gap:22px">
+      <div class="bub out" data-in="1.0" data-fx="right">Preciso de acompanhante à noite no hospital, a partir de sexta.</div>
+      <div class="bub in" data-in="2.0" data-fx="left">Encontramos! A Joana está disponível. Confirme no app e pronto.</div>
+    </div>
+  </section>
+
+  <!-- 7. chamada -->
+  <section class="scene cta" data-s="38" data-e="45" data-last="1">
+    <h1 data-in="0.2" style="font-size:104px">Contrate com<br><em>tranquilidade.</em></h1>
+    <p class="lead" data-in="0.9">Crie sua conta grátis e veja quem está disponível.</p>
+    <div class="url" data-in="1.6" data-fx="pop">saudepravoce.com</div>
+  </section>
+
+  <div class="ilus">Imagens ilustrativas</div>
+  <div class="bar"><i></i></div>
+</div>
+<script src="engine.js"></script>
+</body></html>

@@ -20,6 +20,8 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
 .papel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .papel .opt { align-items: flex-start; min-height: 130px; }
 .papel .opt svg { margin-bottom: 6px; }
+#vidBox video { width: 100%; max-width: 360px; align-self: center; aspect-ratio: 9 / 16; border-radius: 18px; background: #0E2B36; }
+#vidBox .seg2 { display: flex; gap: 8px; } #vidBox .seg2 button { flex: 1; }
 </style>
 </head>
 <body>
@@ -41,6 +43,8 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
     <p class="small mute" style="text-align:center"><button class="link" type="button" id="esqueci">Esqueci a senha</button></p>
     <p class="tiny mute" style="text-align:center">Ao continuar você aceita os <a href="/termos.html">Termos de uso</a> e a <a href="/privacidade.html">Política de privacidade</a>.</p>
   </section>
+
+  <section class="card col" id="vidBox" aria-label="Vídeo: como funciona"></section>
 
   <section class="card col hide" id="papelBox">
     <div><h2>Como você vai usar a Saúde Pra Você?</h2><p class="mute small">Escolha uma vez. Para usar dos dois jeitos, crie outra conta com outro celular.</p></div>
@@ -81,6 +85,18 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
     const pre = $(`[data-p="${como}"]`); if (pre) pre.click();
   }
   depois();
+
+  // vídeo "como funciona" conforme o perfil (link de profissional ou de contratante)
+  const VID = { pro: ['/videos/video-profissional.mp4', '/videos/poster-pro.jpg', 'Veja como funciona para profissionais', 'Você define seu valor, encontra famílias e recebe pelo app.'],
+    cliente: ['/videos/video-contratante.mp4', '/videos/poster-cli.jpg', 'Veja como funciona para famílias', 'Escolha, contrate do seu jeito e pague com segurança.'] };
+  const mostraVideo = (k) => {
+    const v = VID[k];
+    $('#vidBox').innerHTML = `${como ? '' : `<div class="seg2"><button type="button" class="btn btn-sm ${k === 'cliente' ? '' : 'btn-ghost'}" data-v="cliente">Quero contratar</button><button type="button" class="btn btn-sm ${k === 'pro' ? '' : 'btn-ghost'}" data-v="pro">Sou profissional</button></div>`}
+      <div><h2 style="font-size:19px">${v[2]}</h2><p class="small mute">${v[3]} · 45 segundos</p></div>
+      <video src="${v[0]}" poster="${v[1]}" controls playsinline preload="none"></video>`;
+    $$('#vidBox [data-v]').forEach((b) => (b.onclick = () => mostraVideo(b.dataset.v)));
+  };
+  mostraVideo(como === 'pro' ? 'pro' : 'cliente');
 
   const modo = (c) => {
     criar = c;
