@@ -207,10 +207,12 @@
       <div class="row">${wa ? `<a class="btn btn-ghost" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp da central</a>` : ''}<button class="btn btn-coral" id="nova">Descrever minha necessidade</button></div></div>
       ${(data || []).length ? `<div class="card"><div class="list">${data.map((n) => `<div class="li"><span class="grow"><b>#${n.codigo} · ${esc(DC.espec(n.especialidade))}</b> para ${esc(n.paciente_nome || '—')}<br>
           <span class="small mute">${n.inicio ? DC.data(n.inicio) + (n.fim ? ' a ' + DC.data(n.fim) : '') + ' · ' : ''}${esc(n.cidade || '')}</span>${n.nota_central ? `<br><span class="small">Central: ${esc(n.nota_central)}</span>` : ''}</span>
-          ${DC.necTag(n.status)}${['aberta', 'em_busca'].includes(n.status) ? `<button class="btn btn-sm btn-ghost" data-cn="${n.id}">Cancelar</button>` : ''}</div>`).join('')}</div></div>`
+          ${DC.necTag(n.status)}${['aberta', 'em_busca'].includes(n.status) ? `<button class="btn btn-sm btn-ghost" data-cn="${n.id}">Cancelar</button>` : ''}</div>
+          <div class="col" style="gap:8px;padding:0 0 14px"><b class="small">Conversa com a central</b><div data-chat="${n.id}"></div></div>`).join('')}</div></div>`
         : '<div class="card empty"><b>Nenhum pedido à central</b>Use quando não achar no catálogo, para casos difíceis ou com urgência.</div>'}`;
     $('#nova').onclick = () => novaNecessidade();
     $$('[data-cn]').forEach((b) => (b.onclick = () => DC.busy(b, async () => { const { error: e } = await sb.from('necessidades').update({ status: 'cancelada' }).eq('id', b.dataset.cn); if (e) throw e; ajuda(); })));
+    $$('[data-chat]').forEach((el) => DC.chatNec(el, el.dataset.chat, false));
   }
   function novaNecessidade(esp) {
     const u = ultimo();

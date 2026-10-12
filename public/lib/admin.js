@@ -122,6 +122,7 @@
       ${n.cuidados ? `<p class="small" style="white-space:pre-wrap"><b>Cuidados:</b> ${esc(n.cuidados)}</p>` : ''}
       ${n.observacoes ? `<p class="small" style="white-space:pre-wrap"><b>Obs.:</b> ${esc(n.observacoes)}</p>` : ''}
       <p class="small mute">${n.genero_pref ? 'Prefere profissional ' + (n.genero_pref === 'feminino' ? 'mulher' : 'homem') + ' · ' : ''}${n.orcamento ? 'Orçamento ' + brl(n.orcamento) : 'Sem orçamento informado'}</p>
+      <div class="col" style="gap:8px;border-top:1px solid var(--line);padding-top:12px"><b class="small">Conversa com ${esc(n.cliente_nome.split(' ')[0])}</b><div data-chat="${n.id}"></div></div>
       <label class="f">Nota da central (o contratante vê)<input class="in" data-nota="${n.id}" value="${esc(n.nota_central)}" maxlength="300" placeholder="ex.: Estamos falando com 2 cuidadoras da região"></label>
       <div class="row">${ativa(n) ? `<button class="btn btn-sm" data-ind="${n.id}">Indicar profissional</button>` : ''}
         ${TEL[n.cliente_id] ? `<a class="btn btn-sm btn-ghost" href="${esc(DC.wa(TEL[n.cliente_id], 'Olá, ' + n.cliente_nome.split(' ')[0] + '! Aqui é da nossa central, sobre o seu pedido #' + n.codigo + '.'))}" target="_blank" rel="noopener">WhatsApp do contratante</a>` : ''}
@@ -132,6 +133,7 @@
     $$('[data-nota]').forEach((i) => (i.onchange = async () => { const { error } = await sb.from('necessidades').update({ nota_central: i.value.trim() }).eq('id', i.dataset.nota); if (error) DC.erro(error); else DC.toast('Nota salva'); }));
     $$('[data-st]').forEach((s) => (s.onchange = async () => { const { error } = await sb.from('necessidades').update({ status: s.value }).eq('id', s.dataset.st); if (error) DC.erro(error); else { DC.toast('Status atualizado'); central(); } }));
     $$('[data-ind]').forEach((b) => (b.onclick = () => indicar(N.find((n) => n.id === b.dataset.ind))));
+    $$('[data-chat]').forEach((el) => DC.chatNec(el, el.dataset.chat, true));
   }
   async function indicar(n) {
     const [{ data: P }, din] = await Promise.all([sb.from('pros').select('*').eq('publicado', true).order('verificado', { ascending: false }), Promise.resolve(null)]);

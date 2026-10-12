@@ -145,5 +145,24 @@
         `<a href="${h}" class="${location.pathname === h ? 'on' : ''}" ${location.pathname === h ? 'aria-current="page"' : ''}>${n}</a>`).join('')}</nav>`);
     }
   };
+  // conversa entre a central e o contratante dentro de um pedido à central
+  DC.chatNec = async (el, necId, souCentral) => {
+    if (!el) return;
+    const { data, error } = await DC.sb.from('necessidade_mensagens').select('*').eq('necessidade_id', necId).order('created_at').limit(300);
+    if (error) { el.innerHTML = `<p class="tiny mute">Conversa indisponível agora.</p>`; return; }
+    el.innerHTML = `<div class="chat" style="max-height:320px">${(data || []).length ? '' : `<p class="small mute nm">${souCentral ? 'Nenhuma mensagem ainda. Escreva para o contratante.' : 'Fale com a nossa central por aqui.'}</p>`}</div>
+      <form class="row"><label class="sr">Mensagem</label><input class="in grow" maxlength="4000" placeholder="${souCentral ? 'Mensagem para o contratante' : 'Mensagem para a central'}" autocomplete="off"><button class="btn btn-sm" type="submit">Enviar</button></form>`;
+    const chat = el.querySelector('.chat');
+    const poe = (x) => { if (chat.querySelector(`[data-mid="${x.id}"]`)) return; const nm = chat.querySelector('.nm'); if (nm) nm.remove();
+      const meu = souCentral ? x.da_central : !x.da_central;
+      chat.insertAdjacentHTML('beforeend', `<div data-mid="${x.id}" class="bub ${meu ? 'out' : 'in'}">${x.da_central && !souCentral ? '<b class="tiny">Central</b><br>' : ''}${DC.esc(x.texto)}<small>${new Date(x.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</small></div>`);
+      chat.scrollTop = chat.scrollHeight; };
+    (data || []).forEach(poe);
+    DC.sb.channel('nec-' + necId + '-' + Math.random().toString(36).slice(2, 7)).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'necessidade_mensagens', filter: 'necessidade_id=eq.' + necId }, (ev) => poe(ev.new)).subscribe();
+    const f = el.querySelector('form'), inp = f.querySelector('input');
+    f.onsubmit = async (e) => { e.preventDefault(); const t = inp.value.trim(); if (!t) return; inp.value = '';
+      const { data: m, error: er } = await DC.sb.from('necessidade_mensagens').insert({ necessidade_id: necId, texto: t }).select().single();
+      if (er) { DC.erro(er); inp.value = t; return; } poe(m); };
+  };
   DC.centralWa = (texto) => { const n = DC.cfg && DC.cfg.central_whatsapp; return n ? DC.wa(n, texto) : null; };
 })();
