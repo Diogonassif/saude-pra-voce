@@ -1,3 +1,5 @@
+/* Padrão MindFy Tech (mesmo em todos os apps): carrega /lib/mind-padrao.js */
+(function () { if (document.querySelector('script[src^="/lib/mind-padrao.js"]')) return; var s = document.createElement('script'); s.src = '/lib/mind-padrao.js?v=2026-10-12.1'; (document.head || document.documentElement).appendChild(s); })();
 /* Saúde Pra Você · núcleo do navegador: sessão, API, utilidades de tela */
 (function () {
   const DC = window.DC = window.DC || {};
@@ -27,22 +29,7 @@
     }
     return out;
   };
-  // botão de olho em todo campo de senha (mostrar/esconder o que foi digitado)
-  DC.olhos = (root) => {
-    (root || document).querySelectorAll('input[type="password"]:not([data-olho])').forEach((inp) => {
-      inp.dataset.olho = '1';
-      const w = document.createElement('span'); w.className = 'pw-wrap';
-      inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
-      const b = document.createElement('button'); b.type = 'button'; b.className = 'pw-eye'; b.setAttribute('aria-label', 'Mostrar senha');
-      const olho = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-      const fechado = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17.9 17.9A10.8 10.8 0 0 1 12 19c-7 0-11-7-11-7a20 20 0 0 1 5.1-5.9M9.9 5.2A10 10 0 0 1 12 5c7 0 11 7 11 7a20 20 0 0 1-2.4 3.4M14.1 14.1a3 3 0 1 1-4.2-4.2M1 1l22 22"/></svg>';
-      b.innerHTML = olho;
-      b.onclick = () => { const ver = inp.type === 'password'; inp.type = ver ? 'text' : 'password'; b.innerHTML = ver ? fechado : olho; b.setAttribute('aria-label', ver ? 'Esconder senha' : 'Mostrar senha'); inp.focus(); };
-      w.appendChild(b);
-    });
-  };
-  const olhar = () => { DC.olhos(); new MutationObserver(() => DC.olhos()).observe(document.body, { childList: true, subtree: true }); };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', olhar); else olhar();
+  DC.olhos = (root) => window.MindPadrao && window.MindPadrao.olhos(root); // agora vem do padrão Mind (mind-padrao.js)
   DC.data = (s) => (s ? String(s).slice(0, 10).split('-').reverse().join('/') : '');
   DC.dataCurta = (s) => DC.data(s).slice(0, 5);
   DC.hoje = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
