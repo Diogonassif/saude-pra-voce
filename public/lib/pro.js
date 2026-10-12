@@ -36,10 +36,14 @@
 
   const lista = async () => (await sb.from('contratacoes').select('*,contratacao_pro(total)').eq('pro_id', me.id).order('inicio')).data || [];
   const totPro = (c) => { const v = Array.isArray(c.contratacao_pro) ? c.contratacao_pro[0] : c.contratacao_pro; return v ? +v.total : 0; };
-  const linha = (c) => `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
+  const linha = (c) => c.tipo === 'clt' ? `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
+    ${DC.av(c.cliente_nome, DC.foto(c.cliente_id))}<span class="grow"><b>${esc(c.empresa_nome || c.cliente_nome)}</b> <span class="tag t-blue">👔 Vaga CLT</span><br>
+    <span class="small mute">${esc((c.clt && c.clt.cargo) || '')} · ${esc((c.clt && c.clt.jornada) || '')}${c.cidade ? ' · ' + esc(c.cidade) : ''}</span></span>
+    <span style="text-align:right">${DC.stTag(c.status, c.tipo)}<br><b class="small">${c.clt && c.clt.salario ? brl(c.clt.salario, 0) + '/mês' : 'Salário a combinar'}</b></span></button>`
+    : `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
     ${DC.av(c.cliente_nome, DC.foto(c.cliente_id))}<span class="grow"><b>${esc(c.tipo === 'fixo' && c.empresa_nome ? c.empresa_nome : c.cliente_nome)}</b> <span class="small mute">· ${esc(DC.MODAL[c.modalidade].nome)}</span>${c.tipo === 'fixo' ? ' <span class="tag t-blue">Contrato fixo</span>' : ''}<br>
     <span class="small mute">${DC.periodo(c)}${c.horario ? ' · ' + c.horario.slice(0, 5) : ''} · ${esc(DC.LOCAL[c.local_tipo])}${c.cidade ? ', ' + esc(c.cidade) : ''} · ${esc(c.paciente_nome)}</span></span>
-    <span style="text-align:right">${DC.stTag(c.status)}<br><b class="small">${brl(totPro(c), 2)}</b></span></button>`;
+    <span style="text-align:right">${DC.stTag(c.status, c.tipo)}<br><b class="small">${brl(totPro(c), 2)}</b></span></button>`;
   const liga = (recarregar) => $$('[data-c]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.c, 'pro', recarregar)));
 
   // ------------------------------------------------------------------ início
@@ -136,8 +140,8 @@
           <p class="small mute">Neste mês, a partir de hoje: ${cont.livre} disponível(is) · ${cont.parcial} parcial(is) · ${cont.off} folga(s) · ${cont.alocado} ocupado(s) · ${cont.vazio} sem marcação.</p>
           <div class="row"><button class="btn btn-sm btn-ghost" id="todos">Marcar o mês todo como disponível</button><button class="btn btn-sm btn-ghost" id="limpaMes">Limpar o mês</button></div>
         </div>
-        <div class="card col"><h2>Atendimentos confirmados</h2>${proximos.length ? `<div class="list small">${proximos.map((c) => `<button class="li linha" data-c="${c.id}"><span class="grow"><b>${DC.periodo(c)}</b>${c.horario ? ' · ' + c.horario.slice(0, 5) : ''}<br><span class="mute">${esc(c.cliente_nome)} · ${esc(DC.MODAL[c.modalidade].nome)} · ${esc(DC.LOCAL[c.local_tipo] || '')}${c.cidade ? ', ' + esc(c.cidade) : ''}</span></span>${DC.stTag(c.status)}</button>`).join('')}</div>` : '<p class="small mute">Nenhum atendimento confirmado pela frente.</p>'}
-          ${pend.length ? `<h3>Pedidos aguardando</h3><div class="list small">${pend.map((c) => `<button class="li linha" data-c="${c.id}"><span class="grow"><b>${DC.periodo(c)}</b> · ${esc(c.cliente_nome)}</span>${DC.stTag(c.status)}</button>`).join('')}</div>` : ''}</div>
+        <div class="card col"><h2>Atendimentos confirmados</h2>${proximos.length ? `<div class="list small">${proximos.map((c) => `<button class="li linha" data-c="${c.id}"><span class="grow"><b>${DC.periodo(c)}</b>${c.horario ? ' · ' + c.horario.slice(0, 5) : ''}<br><span class="mute">${esc(c.cliente_nome)} · ${esc(DC.MODAL[c.modalidade].nome)} · ${esc(DC.LOCAL[c.local_tipo] || '')}${c.cidade ? ', ' + esc(c.cidade) : ''}</span></span>${DC.stTag(c.status, c.tipo)}</button>`).join('')}</div>` : '<p class="small mute">Nenhum atendimento confirmado pela frente.</p>'}
+          ${pend.length ? `<h3>Pedidos aguardando</h3><div class="list small">${pend.map((c) => `<button class="li linha" data-c="${c.id}"><span class="grow"><b>${DC.periodo(c)}</b> · ${esc(c.cliente_nome)}</span>${DC.stTag(c.status, c.tipo)}</button>`).join('')}</div>` : ''}</div>
       </div><div class="side">
         <div class="card col"><h2>Bloquear um período</h2><p class="small mute">Férias, viagem ou outro trabalho. Os dias viram folga e ninguém consegue pedir nesse período.</p>
           <div class="grid2"><label class="f">De<input class="in" type="date" id="bI" min="${hoje}" value="${hoje}"></label><label class="f">Até<input class="in" type="date" id="bF" min="${hoje}" value="${somaDias(hoje, 6)}"></label></div>

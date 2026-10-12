@@ -26,7 +26,8 @@
     async function render() {
       let d; try { d = await carregar(); } catch (e) { m.el.innerHTML = `<p>${esc(e.message)}</p><div class="acts"><button class="btn" data-close>Fechar</button></div>`; return; }
       const { c, v, sp, msgs, av, contato, P } = d;
-      const fixo = c.tipo === 'fixo';
+      const fixo = c.tipo === 'fixo', clt = c.tipo === 'clt';
+      const V = c.clt || {};
       const qP = P.map((x) => +x.quantidade);
       const valParc = (tot, i) => DC.alocar(tot, qP, i);
       const prox = P.findIndex((x) => x.status !== 'pago');
@@ -77,22 +78,49 @@
       if (pv && souAdm) aviso += `<div class="banner info">💰 Negociação de valor em andamento (proposta ${pv.por === 'cliente' ? 'do contratante' : 'do profissional'}).</div>`;
       if (pago && contato) aviso += `<div class="banner ok row" style="justify-content:space-between"><span>${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b> · ${esc(DC.telBonito(contato))}</span><a class="btn btn-sm btn-green" href="${esc(DC.wa(contato, 'Olá! Sou ' + DC.me.nome.split(' ')[0] + ', do atendimento Saúde Pra Você #' + c.codigo + '.'))}" target="_blank" rel="noopener">WhatsApp</a></div>`;
 
+      if (clt) {
+        const emp = esc(c.empresa_nome || c.cliente_nome), pn = esc(c.pro_nome.split(' ')[0]);
+        aviso = ({
+          solicitado: souPro ? `<div class="banner info">👔 <b>${emp}</b> tem interesse em contratar você com carteira assinada (CLT). Veja a vaga e responda: se tiver interesse, o seu contato é liberado para a empresa.</div>`
+            : `<div class="banner info">Proposta de emprego enviada para ${pn}. Quando ${pn} responder que tem interesse, o contato aparece aqui.</div>`,
+          confirmado: `<div class="banner ok">✅ ${souPro ? 'Você confirmou interesse na vaga.' : pn + ' tem interesse na vaga!'} Combinem a entrevista e a admissão pelo contato abaixo ou pela conversa.</div>`,
+          concluido: '<div class="banner ok">Contratação CLT concluída. Boa parceria!</div>',
+          recusado: `<div class="banner">${souPro ? 'Você respondeu que não tem interesse.' : pn + ' não tem interesse nesta vaga agora.'}${c.motivo ? ' Motivo: ' + esc(c.motivo) : ''}</div>`,
+          cancelado: '<div class="banner">Proposta cancelada.</div>',
+        })[c.status] || '';
+        if (pago && contato) aviso += `<div class="banner ok row" style="justify-content:space-between"><span>${souPro ? 'Empresa' : 'Profissional'}: <b>${esc(outro)}</b> · ${esc(DC.telBonito(contato))}</span><a class="btn btn-sm btn-green" href="${esc(DC.wa(contato, 'Olá! Sou ' + DC.me.nome.split(' ')[0] + ', sobre a vaga CLT #' + c.codigo + ' da Saúde Pra Você.'))}" target="_blank" rel="noopener">WhatsApp</a></div>`;
+      }
+      const cnpjF = (x) => String(x || '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+      const cltDet = clt ? `<div class="card flat col" style="gap:10px"><h3>👔 Vaga CLT · ${esc(V.cargo || DC.espec(c.especialidade))}</h3>
+          <div class="grid2">
+            <div class="col" style="gap:4px"><span class="tiny mute">EMPRESA</span><b>${esc(c.empresa_nome || '')}</b>${c.empresa_cnpj ? `<span class="small">CNPJ ${esc(cnpjF(c.empresa_cnpj))}</span>` : ''}</div>
+            <div class="col" style="gap:4px"><span class="tiny mute">JORNADA</span><b>${esc(V.jornada || '')}</b><span class="small">Início previsto: ${DC.data(c.inicio)}</span></div>
+            <div class="col" style="gap:4px"><span class="tiny mute">SALÁRIO</span><b>${V.salario ? brl(V.salario, 2) + ' / mês' : 'A combinar'}</b>${V.beneficios ? `<span class="small">Benefícios: ${esc(V.beneficios)}</span>` : ''}</div>
+            <div class="col" style="gap:4px"><span class="tiny mute">ONDE</span><b>${esc(DC.LOCAL[c.local_tipo])}</b><span class="small">${esc([c.endereco, c.cidade].filter(Boolean).join(', '))}</span></div>
+            ${c.notas ? `<div class="col" style="gap:4px"><span class="tiny mute">OBSERVAÇÕES</span><span class="small" style="white-space:pre-wrap">${esc(c.notas)}</span></div>` : ''}
+          </div><p class="tiny mute">Contratação direta entre a empresa e o profissional, com carteira assinada. O app só aproxima vocês: não há pagamento pela Saúde Pra Você.</p></div>` : '';
+      const cltBtns = clt ? `<div class="row">
+          ${souPro && c.status === 'solicitado' ? '<button class="btn btn-green" id="aceitar">Tenho interesse</button><button class="btn btn-ghost" id="recusar">Não tenho interesse</button>' : ''}
+          ${(souCli || souAdm) && c.status === 'solicitado' ? '<button class="btn btn-red" id="cancelar">Cancelar proposta</button>' : ''}
+          ${(souCli || souAdm) && c.status === 'confirmado' ? '<button class="btn btn-green" id="concluir">Marcar como contratado</button><button class="btn btn-ghost" id="cancelar">Não deu certo</button>' : ''}
+        </div>` : '';
       const fimPassou = c.fim <= DC.hoje();
-      const avaliar = souCli && c.status === 'concluido' && !av
+      const avaliar = !clt && souCli && c.status === 'concluido' && !av
         ? `<form class="card flat col" id="avf"><h3>Como foi o atendimento de ${esc(c.pro_nome.split(' ')[0])}?</h3><div class="row" id="st">${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="btn btn-sm btn-ghost" data-n="${n}" aria-label="${n} estrela(s)">${'★'.repeat(n)}</button>`).join('')}</div><textarea class="in" id="avc" maxlength="1000" placeholder="Conte como foi (aparece no perfil do profissional, sem o seu nome)"></textarea><button class="btn" id="avs" type="button" disabled>Enviar avaliação</button></form>` : '';
 
       m.el.innerHTML = `
-        <div class="row"><span class="small mute">#${c.codigo}</span>${DC.stTag(c.status)}${c.origem === 'central' ? '<span class="tag t-blue">Indicado pela central</span>' : ''}${fixo ? '<span class="tag t-blue">🏥 Contrato fixo</span>' : ''}<button class="btn btn-sm btn-ghost right" data-close aria-label="Fechar">✕</button></div>
-        <h2>${esc(DC.espec(c.especialidade))} · ${esc(DC.MODAL[c.modalidade].nome.toLowerCase())}</h2>
+        <div class="row"><span class="small mute">#${c.codigo}</span>${DC.stTag(c.status, c.tipo)}${c.origem === 'central' ? '<span class="tag t-blue">Indicado pela central</span>' : ''}${fixo ? '<span class="tag t-blue">🏥 Contrato fixo</span>' : ''}${clt ? '<span class="tag t-blue">👔 Vaga CLT</span>' : ''}<button class="btn btn-sm btn-ghost right" data-close aria-label="Fechar">✕</button></div>
+        <h2>${clt ? 'Proposta de emprego · ' + esc(V.cargo || DC.espec(c.especialidade)) : esc(DC.espec(c.especialidade)) + ' · ' + esc(DC.MODAL[c.modalidade].nome.toLowerCase())}</h2>
         <div class="row" style="flex-wrap:nowrap">${souAdm ? DC.av(c.cliente_nome, DC.foto(c.cliente_id)) + DC.av(c.pro_nome, DC.foto(c.pro_id)) : DC.av(outro, DC.foto(souPro ? c.cliente_id : c.pro_id), 'lg')}<p class="small mute">${souAdm ? `Contratante: <b>${esc(c.cliente_nome)}</b> · Profissional: <b>${esc(c.pro_nome)}</b>` : `${souPro ? 'Contratante' : 'Profissional'}: <b>${esc(outro)}</b>`}</p></div>
         ${aviso}
-        <div class="grid2">
+        ${cltDet}
+        <div class="grid2 ${clt ? 'hide' : ''}">
           <div class="col" style="gap:4px"><span class="tiny mute">QUANDO</span><b>${DC.periodo(c)}${c.horario ? ' · a partir das ' + c.horario.slice(0, 5) : ''}</b><span class="small">${esc(semana)} · ${esc(DC.qtdTxt(c))}</span></div>
           <div class="col" style="gap:4px"><span class="tiny mute">ONDE</span><b>${esc(DC.LOCAL[c.local_tipo])}</b><span class="small">${esc(ende)}</span></div>
           <div class="col" style="gap:4px"><span class="tiny mute">${fixo ? 'QUEM SERÁ ATENDIDO' : 'QUEM RECEBE O CUIDADO'}</span><b>${esc(c.paciente_nome)}${c.paciente_idade != null ? ', ' + c.paciente_idade + ' anos' : ''}</b>${c.cuidados ? `<span class="small" style="white-space:pre-wrap">${esc(c.cuidados)}</span>` : ''}</div>
           ${c.notas ? `<div class="col" style="gap:4px"><span class="tiny mute">OBSERVAÇÕES</span><span class="small" style="white-space:pre-wrap">${esc(c.notas)}</span></div>` : ''}
         </div>
-        ${valores}
+        ${clt ? '' : valores}
         ${fixo ? `<div class="card flat col" style="gap:8px"><div class="row"><h3>🏥 Contrato fixo${c.empresa_nome ? ' · ' + esc(c.empresa_nome) : ''}</h3>${c.empresa_cnpj ? `<span class="small mute right">CNPJ ${esc(c.empresa_cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'))}</span>` : ''}</div>
           ${P.length ? `<div class="tbl-box"><table class="tbl small"><thead><tr><th>Parcela</th><th>Mês</th><th class="hide-m">Dias</th><th>${souPro ? 'Você recebe' : souAdm ? 'Contratante paga' : 'Valor'}</th>${souAdm && sp ? '<th>Profissional</th>' : ''}<th>Situação</th></tr></thead><tbody>
             ${P.map((x, i) => `<tr><td>${x.n}/${P.length}</td><td>${DC.mesTxt(x.inicio)}<br><span class="tiny mute">${DC.dataCurta(x.inicio)} a ${DC.dataCurta(x.fim)}</span></td><td class="hide-m">${x.dias}</td><td><b>${v ? brl(valParc(v.total, i), 2) : '—'}</b></td>${souAdm && sp ? `<td>${brl(valParc(sp.pro, i), 2)}</td>` : ''}
@@ -101,7 +129,8 @@
           <p class="tiny mute">${souPro ? 'Cada parcela paga cai na sua conta Mercado Pago. Os dias do contrato ficam reservados na sua agenda depois da 1ª parcela.' : 'Cada parcela cobre um mês do contrato, proporcional aos dias de atendimento. O pagamento é pelo app (Pix ou cartão).'}</p></div>` : ''}
         ${avaliar}
         ${av ? `<p class="small">Avaliação: <span class="stars">${'★'.repeat(av.nota)}</span> ${esc(av.comentario)}</p>` : ''}
-        <div class="row">
+        ${cltBtns}
+        <div class="row ${clt ? 'hide' : ''}">
           ${souCli && c.status === 'aceito' ? `<button class="btn btn-green" id="pagar" ${pv ? 'disabled title="Responda a proposta de valor antes"' : ''}>${fixo && P.length ? 'Pagar 1ª parcela e confirmar' : 'Pagar e confirmar'}</button>` : ''}
           ${fixo && souCli && c.status === 'confirmado' && prox >= 0 ? `<button class="btn btn-green" id="pagar">Pagar parcela ${P[prox].n}/${P.length} · ${brl(valParc(v ? v.total : 0, prox), 2)}</button>` : ''}
           ${(souCli || souPro) && ['solicitado', 'aceito'].includes(c.status) ? `<button class="btn btn-ghost" id="proporValor">💰 ${souCli ? 'Propor outro valor' : 'Propor meu valor'}</button>` : ''}
@@ -114,7 +143,7 @@
           ${c.status === 'confirmado' && (souCli || souAdm || (souPro && fimPassou)) ? '<button class="btn btn-ghost" id="concluir">Marcar como concluído</button>' : ''}
         </div>
         <div class="col" style="border-top:1px solid var(--line);padding-top:14px"><h3>Conversa</h3>
-          ${pago ? '' : `<p class="tiny mute">Telefones, e-mails e links ficam ocultos até o pagamento. Combine tudo por aqui com segurança${['solicitado', 'aceito'].includes(c.status) && !souAdm ? ', inclusive o valor: use “💰 Propor' + (souCli ? ' outro valor' : ' meu valor') + '”' : ''}.</p>`}
+          ${pago ? '' : clt ? '<p class="tiny mute">Telefones, e-mails e links ficam ocultos até o profissional confirmar interesse.</p>' : `<p class="tiny mute">Telefones, e-mails e links ficam ocultos até o pagamento. Combine tudo por aqui com segurança${['solicitado', 'aceito'].includes(c.status) && !souAdm ? ', inclusive o valor: use “💰 Propor' + (souCli ? ' outro valor' : ' meu valor') + '”' : ''}.</p>`}
           <div class="chat" id="chat">${msgs.length ? '' : '<p class="small mute" id="semmsg">Nenhuma mensagem ainda.</p>'}</div>
           ${['recusado', 'cancelado'].includes(c.status) ? '' : '<form class="row" id="cf"><label class="sr" for="ct">Mensagem</label><input class="in grow" id="ct" maxlength="4000" placeholder="Escreva uma mensagem" autocomplete="off"><button class="btn" type="submit">Enviar</button></form>'}
         </div>`;
@@ -136,10 +165,10 @@
 
       const act = (sel, fn) => { const b = $(sel, m.el); if (b) b.onclick = () => DC.busy(b, fn); };
       const motivo = '<label class="f">Motivo (opcional)<textarea class="in" maxlength="300" style="min-height:70px"></textarea></label>';
-      act('#aceitar', async () => { if (!(await DC.confirm('Aceitar este pedido?', 'Aceitar'))) return; await DC.api('/api/contratar', { acao: 'aceitar', id }); DC.toast('Pedido aceito. Avisamos o contratante.'); render(); });
-      act('#recusar', async () => { const r = await DC.confirm('Recusar este pedido?', 'Recusar', motivo); if (!r) return; await DC.api('/api/contratar', { acao: 'recusar', id, motivo: r.valor }); DC.toast('Pedido recusado'); render(); });
+      act('#aceitar', async () => { if (!(await DC.confirm(clt ? 'Confirmar interesse na vaga? O seu contato será liberado para a empresa.' : 'Aceitar este pedido?', clt ? 'Tenho interesse' : 'Aceitar'))) return; await DC.api('/api/contratar', { acao: 'aceitar', id }); DC.toast(clt ? 'Interesse enviado. O contato da empresa já aparece aqui.' : 'Pedido aceito. Avisamos o contratante.'); render(); });
+      act('#recusar', async () => { const r = await DC.confirm(clt ? 'Responder que não tem interesse na vaga?' : 'Recusar este pedido?', clt ? 'Não tenho interesse' : 'Recusar', motivo); if (!r) return; await DC.api('/api/contratar', { acao: 'recusar', id, motivo: r.valor }); DC.toast('Pedido recusado'); render(); });
       act('#cancelar', async () => { const r = await DC.confirm('Cancelar esta contratação?', 'Cancelar', motivo); if (!r) return; await DC.api('/api/contratar', { acao: 'cancelar', id, motivo: r.valor }); DC.toast('Cancelado'); render(); });
-      act('#concluir', async () => { if (!(await DC.confirm('Marcar o atendimento como concluído?', 'Concluir'))) return; await DC.api('/api/contratar', { acao: 'concluir', id }); DC.toast('Atendimento concluído'); render(); });
+      act('#concluir', async () => { if (!(await DC.confirm(clt ? 'Marcar que o profissional foi contratado?' : 'Marcar o atendimento como concluído?', clt ? 'Contratado' : 'Concluir'))) return; await DC.api('/api/contratar', { acao: 'concluir', id }); DC.toast(clt ? 'Contratação registrada. Boa parceria!' : 'Atendimento concluído'); render(); });
       act('#editar', async () => { m.close(); await DC.editarPedido(c, () => DC.abrirContratacao(id, papel, recarregar)); });
       act('#aceitarData', async () => { const r = await DC.api('/api/contratar', { acao: 'aceitar_data', id }); DC.toast(r.status === 'aceito' ? 'Nova data aceita. Agora é só pagar para confirmar.' : 'Nova data aceita. Avisamos o profissional.'); render(); });
       act('#recusarData', async () => { await DC.api('/api/contratar', { acao: 'recusar_data', id }); DC.toast('Mantivemos a data original'); render(); });

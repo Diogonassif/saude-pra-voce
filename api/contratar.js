@@ -9,7 +9,7 @@ const hoje = () => new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
 const txt = (s, n) => String(s || '').trim().slice(0, n);
 const LOCAIS = ['residencia', 'hospital', 'clinica', 'outro'];
 const ESPEC = { enfermeiro: 'Enfermeiro(a)', tecnico: 'Técnico(a) de enfermagem', cuidador: 'Cuidador(a)', acompanhante: 'Acompanhante hospitalar' };
-const resumo = (c) => `${c.tipo === 'fixo' ? 'Contrato fixo' + (c.empresa_nome ? ' (' + c.empresa_nome + ')' : '') + ' · ' : ''}${ESPEC[c.especialidade] || 'Atendimento'} · ${c.inicio.split('-').reverse().join('/')}${c.fim !== c.inicio ? ' a ' + c.fim.split('-').reverse().join('/') : ''}`;
+const resumo = (c) => c.tipo === 'clt' ? `Vaga CLT${c.empresa_nome ? ' (' + c.empresa_nome + ')' : ''} · ${(c.clt && c.clt.cargo) || ESPEC[c.especialidade] || ''}` : `${c.tipo === 'fixo' ? 'Contrato fixo' + (c.empresa_nome ? ' (' + c.empresa_nome + ')' : '') + ' · ' : ''}${ESPEC[c.especialidade] || 'Atendimento'} · ${c.inicio.split('-').reverse().join('/')}${c.fim !== c.inicio ? ' a ' + c.fim.split('-').reverse().join('/') : ''}`;
 
 async function carregar(id) {
   if (!isUuid(id)) throw fail(400, 'Contratação inválida');
@@ -78,6 +78,42 @@ async function gerarParcelas(id) {
   if (partes.length) await admin('contratacao_parcelas', { method: 'POST', body: partes.map((x) => Object.assign({ contratacao_id: id }, x)) });
 }
 
+// contratação CLT: só aproxima empresa e profissional (sem pagamento nem agenda no app)
+async function criarCLT(b, clienteId, origem, necessidadeId) {
+  if (!isUuid(b.pro_id)) throw fail(400, 'Escolha um profissional');
+  const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,coren_status`);
+  if (!pro || !pro.publicado) throw fail(404, 'Este profissional não está disponível agora');
+  if (['tecnico', 'enfermeiro'].includes(pro.especialidade) && pro.coren_status !== 'ativo') throw fail(409, 'O COREN deste profissional ainda não foi conferido pela central');
+  if (pro.user_id === clienteId) throw fail(400, 'Você não pode contratar a si mesmo');
+  const empresa = txt(b.empresa_nome, 120), cnpj = String(b.empresa_cnpj || '').replace(/\D/g, '');
+  if (!empresa) throw fail(400, 'Informe o nome da empresa que vai contratar');
+  if (cnpj && cnpj.length !== 14) throw fail(400, 'CNPJ inválido: são 14 números');
+  const cargo = txt(b.cargo, 120) || ESPEC[pro.especialidade] || 'Profissional de saúde';
+  const jornada = txt(b.jornada, 200);
+  if (!jornada) throw fail(400, 'Informe a jornada (ex.: 12x36 diurno, segunda a sexta das 7h às 16h)');
+  const salario = +b.salario > 0 ? money(+b.salario) : null;
+  const inicio = dataOk(b.inicio) || hoje();
+  const cli = await one(`profiles?id=eq.${clienteId}&select=nome`);
+  const row = {
+    pro_id: pro.user_id, pro_nome: pro.nome, especialidade: pro.especialidade, modalidade: 'hora',
+    inicio, fim: inicio, horario: null, horas_dia: null, dias_semana: [0, 1, 2, 3, 4, 5, 6], dias: 1, quantidade: 0,
+    local_tipo: LOCAIS.includes(b.local_tipo) ? b.local_tipo : 'clinica', endereco: txt(b.endereco, 300), cidade: txt(b.cidade, 80) || null,
+    paciente_nome: '', cuidados: txt(b.cuidados, 3000), notas: txt(b.notas, 2000),
+    tipo: 'clt', empresa_nome: empresa, empresa_cnpj: cnpj || null,
+    clt: { cargo, jornada, salario, beneficios: txt(b.beneficios, 1000) },
+    cliente_id: clienteId, cliente_nome: (cli && cli.nome) || '', necessidade_id: necessidadeId || null, origem, status: 'solicitado',
+  };
+  if (!row.cidade) throw fail(400, 'Informe a cidade da vaga');
+  const [c] = await admin('contratacoes', { method: 'POST', prefer: 'return=representation', body: row });
+  const t = await taxas();
+  await Promise.all([
+    admin('contratacao_pro', { method: 'POST', body: { contratacao_id: c.id, valor_unit: 0, total: 0 } }),
+    admin('contratacao_cliente', { method: 'POST', body: { contratacao_id: c.id, valor_unit: 0, total: 0 } }),
+    admin('contratacao_split', { method: 'POST', body: { contratacao_id: c.id, taxa_debcare_pct: t.debcare, taxa_mind_pct: t.mind, pro: 0, debcare: 0, mind: 0 } }),
+  ]);
+  return { c };
+}
+
 // monta e grava uma contratação (usado pelo contratante no catálogo e pela central ao indicar)
 async function criarContratacao(b, clienteId, origem, necessidadeId) {
   const { row: r0, t, v } = await planejarPedido(b, clienteId);
@@ -125,6 +161,13 @@ export default handler(async (req, res) => {
   // ------------------------------------------------------------ criar (contratante, pelo catálogo)
   if (b.acao === 'criar') {
     if (me.role !== 'cliente' && !me.isAdmin) throw fail(403, 'Entre como contratante para contratar');
+    if (b.tipo === 'clt') {
+      const { c } = await criarCLT(b, me.id, 'catalogo', null);
+      sendEmail({ to: await emailDe(c.pro_id), subject: `Uma empresa quer contratar você (CLT): ${c.empresa_nome}`,
+        html: shell('Proposta de emprego com carteira assinada', `<p><b>${escH(c.empresa_nome)}</b> tem interesse em contratar você como <b>${escH(c.clt.cargo)}</b> (CLT).</p><p>Jornada: ${escH(c.clt.jornada)}${c.clt.salario ? ' · salário oferecido ' + brl(c.clt.salario) + '/mês' : ''}.</p><p>Abra o app e diga se tem interesse: só então os contatos são liberados.</p>`,
+          { url: url + '/pro.html#pedidos', label: 'Ver a proposta' }) });
+      return send(res, 200, { ok: true, id: c.id, codigo: c.codigo });
+    }
     const { c, v } = await criarContratacao(b, me.id, 'catalogo', null);
     sendEmail({ to: await emailDe(c.pro_id), subject: `Novo pedido: ${resumo(c)}`,
       html: shell('Você recebeu um pedido', `<p><b>${escH(c.cliente_nome)}</b> quer contratar você: ${escH(resumo(c))}.</p><p>Você recebe <b>${brl(v.pro)}</b>.</p>`,
@@ -168,6 +211,12 @@ export default handler(async (req, res) => {
   if (b.acao === 'aceitar') {
     if (!ehPro) throw fail(403, 'Só o profissional aceita o pedido');
     if (c.status !== 'solicitado') throw fail(409, 'Este pedido não está aguardando resposta');
+    if (c.tipo === 'clt') {
+      await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'confirmado', aceito_em: agora(), updated_at: agora() } });
+      sendEmail({ to: await emailDe(c.cliente_id), subject: `${c.pro_nome.split(' ')[0]} tem interesse na vaga CLT`,
+        html: shell('Interesse confirmado', `<p><b>${escH(c.pro_nome)}</b> tem interesse na vaga de ${escH((c.clt && c.clt.cargo) || '')}. O contato já aparece no app para vocês combinarem a entrevista e a contratação.</p>`, { url: url + '/cliente.html#contratacoes', label: 'Ver o contato' }) });
+      return send(res, 200, { ok: true, status: 'confirmado' });
+    }
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'aceito', aceito_em: agora(), updated_at: agora() } });
     sendEmail({ to: await emailDe(c.cliente_id), subject: `${c.pro_nome.split(' ')[0]} aceitou: pague para confirmar`,
       html: shell('Pedido aceito', `<p><b>${escH(c.pro_nome)}</b> aceitou ${escH(resumo(c))}. Pague pelo app para confirmar.</p>`, { url: url + '/cliente.html#contratacoes', label: 'Pagar e confirmar' }) });
@@ -188,10 +237,10 @@ export default handler(async (req, res) => {
   // ------------------------------------------------------------ cancelar (contratante antes de pagar; central a qualquer momento)
   if (b.acao === 'cancelar') {
     if (!(ehCli || me.isAdmin)) throw fail(403, 'Sem acesso');
-    const pode = me.isAdmin ? ['solicitado', 'aceito', 'confirmado'] : ['solicitado', 'aceito'];
+    const pode = me.isAdmin || c.tipo === 'clt' ? ['solicitado', 'aceito', 'confirmado'] : ['solicitado', 'aceito'];
     if (!pode.includes(c.status)) throw fail(409, c.status === 'confirmado' ? 'Atendimento já pago: fale com a central para cancelar e reembolsar' : 'Esta contratação não pode ser cancelada');
     await admin(`contratacoes?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'cancelado', motivo: txt(b.motivo, 300), updated_at: agora() } });
-    if (c.status === 'confirmado') await admin(`agenda?pro_id=eq.${c.pro_id}&dia=gte.${c.inicio}&dia=lte.${c.fim}&status=eq.alocado`, { method: 'DELETE' });
+    if (c.status === 'confirmado' && c.tipo !== 'clt') await admin(`agenda?pro_id=eq.${c.pro_id}&dia=gte.${c.inicio}&dia=lte.${c.fim}&status=eq.alocado`, { method: 'DELETE' });
     sendEmail({ to: await emailDe(c.pro_id), subject: 'Pedido cancelado · Saúde Pra Você', html: shell('Pedido cancelado', `<p>${escH(resumo(c))} foi cancelado.</p>`) });
     return send(res, 200, { ok: true });
   }
@@ -206,6 +255,8 @@ export default handler(async (req, res) => {
     return send(res, 200, { ok: true });
   }
 
+  if (c.tipo === 'clt' && ['editar', 'propor_data', 'aceitar_data', 'propor_valor', 'aceitar_valor', 'trocar_pro'].includes(b.acao))
+    throw fail(409, 'Na contratação CLT o app só aproxima vocês: combinem os detalhes pelo chat ou pelo contato');
   // ------------------------------------------------------------ editar o pedido (contratante, antes de pagar)
   if (b.acao === 'editar') {
     if (!(ehCli || me.isAdmin)) throw fail(403, 'Só o contratante edita o pedido');

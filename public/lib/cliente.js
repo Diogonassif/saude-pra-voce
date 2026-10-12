@@ -24,7 +24,7 @@
     app.innerHTML = `
       <div class="head"><div><h1>Encontre quem vai cuidar</h1><p>Escolha o profissional, o período e pague pelo app. Tudo registrado e com segurança.</p></div>
         <a class="btn btn-coral" href="#ajuda" id="pedeAjuda">Não encontrei: pedir à central</a></div>
-      <div class="banner info row" id="fixoBan" style="justify-content:space-between"><span>🏥 <b>É clínica ou empresa?</b> Contrate um profissional fixo por 1 a 12 meses, com pagamento mensal pelo app.</span><button class="btn btn-sm ${DC.tipoPadrao === 'fixo' ? 'btn-green' : ''}" id="fixoOn">${DC.tipoPadrao === 'fixo' ? '✓ Modo contrato fixo' : 'Quero contrato fixo'}</button></div>
+      <div class="banner info row" id="fixoBan" style="justify-content:space-between"><span>🏥 <b>É clínica ou empresa?</b> Contrate um profissional fixo por 1 a 12 meses (pagamento mensal pelo app) ou encontre alguém para contratar com carteira assinada (CLT).</span><span class="row"><button class="btn btn-sm ${DC.tipoPadrao === 'fixo' ? 'btn-green' : ''}" id="fixoOn">${DC.tipoPadrao === 'fixo' ? '✓ Modo contrato fixo' : 'Quero contrato fixo'}</button><button class="btn btn-sm ${DC.tipoPadrao === 'clt' ? 'btn-green' : 'btn-ghost'}" id="cltOn">${DC.tipoPadrao === 'clt' ? '✓ Modo CLT' : 'Quero contratar CLT'}</button></span></div>
       <div class="seg" id="fe" style="max-width:760px"><button data-e="" class="on">Todos</button>${Object.entries(DC.ESPEC).map(([k, v]) => `<button data-e="${k}">${v.curto}</button>`).join('')}</div>
       <div class="split">
         <aside class="side" style="max-width:300px"><details class="card filtros" ${innerWidth > 800 ? 'open' : ''}><summary>Filtros</summary><div class="col">
@@ -53,7 +53,8 @@
     $('#fp').onchange = (e) => { st.plantao = e.target.value; draw(); };
     $('#fg').onchange = (e) => { st.gen = e.target.value; draw(); };
     $('#fv').onchange = (e) => { st.ver = e.target.checked; draw(); };
-    $('#fixoOn').onclick = () => { DC.tipoPadrao = DC.tipoPadrao === 'fixo' ? null : 'fixo'; const on = DC.tipoPadrao === 'fixo'; $('#fixoOn').textContent = on ? '✓ Modo contrato fixo' : 'Quero contrato fixo'; $('#fixoOn').classList.toggle('btn-green', on); DC.toast(on ? 'Agora escolha o profissional e toque em Contratar: já abre como contrato fixo.' : 'Voltou para atendimento avulso'); };
+    $('#cltOn').onclick = () => { DC.tipoPadrao = DC.tipoPadrao === 'clt' ? null : 'clt'; catalogo(); DC.toast(DC.tipoPadrao === 'clt' ? 'Agora escolha o profissional e toque em Contratar: abre como proposta CLT.' : 'Voltou para atendimento avulso'); };
+    $('#fixoOn').onclick = () => { DC.tipoPadrao = DC.tipoPadrao === 'fixo' ? null : 'fixo'; catalogo(); DC.toast(DC.tipoPadrao === 'fixo' ? 'Agora escolha o profissional e toque em Contratar: já abre como contrato fixo.' : 'Voltou para atendimento avulso'); };
     $('#pedeAjuda').onclick = (e) => { e.preventDefault(); location.hash = 'ajuda'; setTimeout(() => novaNecessidade(st.e), 60); };
     draw();
   }
@@ -110,33 +111,42 @@
     const u = ed ? { paciente_nome: ed.paciente_nome, paciente_idade: ed.paciente_idade, cuidados: ed.cuidados, local_tipo: ed.local_tipo, endereco: ed.endereco, cidade: ed.cidade, horario: ed.horario ? ed.horario.slice(0, 5) : '', horas_dia: ed.horas_dia } : ultimo();
     const mods = Object.keys(DC.MODAL).filter((k) => p[DC.MODAL[k].campo]);
     const st = { tipo: ed ? (ed.tipo || 'avulso') : (tipoIni || 'avulso'), mod: ed && mods.includes(ed.modalidade) ? ed.modalidade : mods[0], semana: ed && (ed.dias_semana || []).length ? [...ed.dias_semana].sort() : [0, 1, 2, 3, 4, 5, 6], local: u.local_tipo || ((p.atende || [])[0]) || 'residencia' };
+    if (!ed && st.tipo !== 'avulso' && st.local === 'residencia') st.local = 'clinica';
     const hoje = DC.hoje(), iniV = ed && ed.inicio >= hoje ? ed.inicio : hoje, fimV = ed && ed.fim >= iniV ? ed.fim : iniV;
     const m = DC.modal(`<div class="row" style="flex-wrap:nowrap">${DC.av(p.nome, p.avatar_url)}<div class="grow"><h2>${ed ? 'Editar pedido #' + ed.codigo : 'Contratar ' + esc(p.nome)}</h2><p class="small mute">${esc(DC.espec(p.especialidade))}</p></div></div>
-      <div class="col" style="gap:6px"><b class="small">Tipo de contratação</b><div class="grid2" id="tp">
+      <div class="col" style="gap:6px"><b class="small">Tipo de contratação</b><div class="grid3" id="tp">
         <button type="button" class="opt ${st.tipo === 'avulso' ? 'on' : ''}" data-t="avulso"><b>Atendimento avulso</b><span>Alguns dias ou semanas, para a família. Paga tudo de uma vez.</span></button>
-        <button type="button" class="opt ${st.tipo === 'fixo' ? 'on' : ''}" data-t="fixo"><b>🏥 Contrato fixo</b><span>Clínicas e empresas: o profissional fixo por meses, com pagamento mensal.</span></button></div></div>
+        <button type="button" class="opt ${st.tipo === 'fixo' ? 'on' : ''}" data-t="fixo"><b>🏥 Contrato fixo</b><span>Clínicas e empresas: o profissional fixo por meses, com pagamento mensal.</span></button>
+        ${ed ? '' : `<button type="button" class="opt ${st.tipo === 'clt' ? 'on' : ''}" data-t="clt"><b>👔 Contratar CLT</b><span>Sua empresa quer contratar com carteira assinada. O app só aproxima vocês; sem pagamento aqui.</span></button>`}</div></div>
+      <div class="col" id="cltBox" style="gap:10px">
+        <div class="banner info small">O profissional recebe a sua proposta de emprego e responde se tem interesse. Se tiver, os contatos são liberados para vocês combinarem entrevista, salário e admissão direto com ele.</div>
+        <div class="grid2"><label class="f">Cargo / função<input class="in" id="cgo" maxlength="120" value="${esc(DC.espec(p.especialidade))}"></label>
+          <label class="f">Salário oferecido (opcional)<input class="in" id="sal" type="number" min="0" step="50" placeholder="R$ por mês"></label>
+          <label class="f">Jornada / escala<input class="in" id="jor" maxlength="200" placeholder="Ex.: 12x36 diurno · seg a sex 7h–16h"></label>
+          <label class="f">Início previsto<input class="in" type="date" id="cini" min="${hoje}" value="${hoje}"></label></div>
+        <label class="f">Benefícios (opcional)<input class="in" id="ben" maxlength="1000" placeholder="Ex.: VT, VR, plano de saúde"></label></div>
       <div class="col" id="fixoBox" style="gap:10px">
         <div class="grid2" style="grid-template-columns:1fr 220px"><label class="f">Clínica ou empresa<input class="in" id="emp" maxlength="120" value="${esc(ed ? ed.empresa_nome || '' : (u.empresa_nome || ''))}" placeholder="Ex.: Clínica Bem Viver"></label>
           <label class="f">CNPJ (opcional)<input class="in" id="cnpj" inputmode="numeric" maxlength="18" value="${esc(ed ? ed.empresa_cnpj || '' : (u.empresa_cnpj || ''))}" placeholder="00.000.000/0000-00"></label></div>
         <label class="f">Duração do contrato<select class="in" id="mes">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `<option value="${n}" ${n === 3 ? 'selected' : ''}>${n} ${n === 1 ? 'mês' : 'meses'}</option>`).join('')}</select><small>Ajusta o último dia sozinho; você pode mudar a data depois, se quiser</small></label></div>
-      <div class="col"><b class="small">Como cobrar</b><div class="seg" id="md">${mods.map((k) => `<button type="button" data-m="${k}" class="${k === st.mod ? 'on' : ''}">${DC.MODAL[k].nome}<br><span class="tiny">${brl(p[DC.MODAL[k].campo])}</span></button>`).join('')}</div></div>
-      <div class="grid2">
+      <div class="col nclt"><b class="small">Como cobrar</b><div class="seg" id="md">${mods.map((k) => `<button type="button" data-m="${k}" class="${k === st.mod ? 'on' : ''}">${DC.MODAL[k].nome}<br><span class="tiny">${brl(p[DC.MODAL[k].campo])}</span></button>`).join('')}</div></div>
+      <div class="grid2 nclt">
         <label class="f">Primeiro dia<input class="in" type="date" id="ini" min="${hoje}" value="${iniV}"></label>
         <label class="f">Último dia<input class="in" type="date" id="fim" min="${iniV}" value="${fimV}"></label>
         <label class="f">Horário de início<input class="in" type="time" id="hor" value="${ed ? (u.horario || '') : (u.horario || '07:00')}"></label>
         <label class="f" id="hdL">Horas por dia<input class="in" type="number" id="hd" min="1" max="24" value="${u.horas_dia || 6}"></label>
       </div>
-      <div class="col" style="gap:6px"><b class="small">Dias da semana</b><div class="sem" id="sem">${DC.SEMANA.map((d, i) => `<button type="button" data-d="${i}" class="${st.semana.includes(i) ? 'on' : ''}">${d}</button>`).join('')}</div></div>
-      <h3 id="quemT">Quem vai receber o cuidado</h3>
-      <div class="grid2" style="grid-template-columns:1fr 110px"><label class="f"><span id="pnL">Nome</span><input class="in" id="pn" maxlength="120" value="${esc(u.paciente_nome || '')}" placeholder="Ex.: Dona Lúcia"></label>
+      <div class="col nclt" style="gap:6px"><b class="small">Dias da semana</b><div class="sem" id="sem">${DC.SEMANA.map((d, i) => `<button type="button" data-d="${i}" class="${st.semana.includes(i) ? 'on' : ''}">${d}</button>`).join('')}</div></div>
+      <h3 id="quemT" class="nclt">Quem vai receber o cuidado</h3>
+      <div class="grid2 nclt" style="grid-template-columns:1fr 110px"><label class="f"><span id="pnL">Nome</span><input class="in" id="pn" maxlength="120" value="${esc(u.paciente_nome || '')}" placeholder="Ex.: Dona Lúcia"></label>
         <label class="f">Idade<input class="in" id="pi" inputmode="numeric" maxlength="3" value="${esc(u.paciente_idade ?? '')}"></label></div>
-      <label class="f">Cuidados necessários<small>Quanto mais detalhe, melhor o profissional se prepara</small><textarea class="in" id="cu" maxlength="3000" placeholder="Ex.: acamada, troca de fralda, medicação às 8h e 20h, curativo na perna, dieta por sonda">${esc(u.cuidados || '')}</textarea></label>
+      <label class="f nclt">Cuidados necessários<small>Quanto mais detalhe, melhor o profissional se prepara</small><textarea class="in" id="cu" maxlength="3000" placeholder="Ex.: acamada, troca de fralda, medicação às 8h e 20h, curativo na perna, dieta por sonda">${esc(u.cuidados || '')}</textarea></label>
       <div class="col" style="gap:6px"><b class="small">Onde</b><div class="seg" id="lc">${Object.entries(DC.LOCAL).map(([k, v]) => `<button type="button" data-l="${k}" class="${k === st.local ? 'on' : ''}">${v.split(' /')[0]}</button>`).join('')}</div></div>
       <div class="grid2" style="grid-template-columns:1fr 200px"><label class="f">Endereço<small id="endDica">rua, número, bairro${''}</small><input class="in" id="en" maxlength="300" value="${esc(u.endereco || '')}"></label>
         <label class="f">Cidade<input class="in" id="ci" maxlength="80" value="${esc(u.cidade || p.cidade || '')}"></label></div>
       <label class="f">Observações (opcional)<textarea class="in" id="no" maxlength="2000" style="min-height:70px" placeholder="Portaria, animais em casa, quem estará presente…">${esc(ed ? ed.notas || '' : '')}</textarea></label>
       ${ed && ed.status === 'aceito' ? '<div class="banner">Se você mudar datas, horários ou dias, o pedido volta para o profissional confirmar de novo.</div>' : ''}
-      <div class="resumo-total" id="tot"></div>
+      <div class="resumo-total nclt" id="tot"></div>
       <div class="priv"><span aria-hidden="true">🔒</span><span>Os dados do paciente ficam só entre você, o profissional e a nossa central. O contato do profissional aparece depois do pagamento.</span></div>
       <div class="acts"><button class="btn btn-ghost" data-close>${ed ? 'Voltar' : 'Cancelar'}</button><button class="btn btn-green" id="env">${ed ? 'Salvar alterações' : 'Enviar pedido'}</button></div>`, { wide: true, semFoco: true });
     const val = () => {
@@ -149,8 +159,12 @@
     };
     const draw = () => {
       $('#hdL', m.el).classList.toggle('hide', st.mod !== 'hora');
-      const fixo = st.tipo === 'fixo';
-      $('#fixoBox', m.el).classList.toggle('hide', !fixo);
+      const fixo = st.tipo === 'fixo', clt = st.tipo === 'clt';
+      $('#fixoBox', m.el).classList.toggle('hide', !fixo && !clt);
+      $('#mes', m.el).closest('label').classList.toggle('hide', clt);
+      $('#cltBox', m.el).classList.toggle('hide', !clt);
+      $$('.nclt', m.el).forEach((x) => x.classList.toggle('hide', clt));
+      $('#env', m.el).textContent = clt ? 'Enviar proposta de emprego' : (ed ? 'Salvar alterações' : 'Enviar pedido');
       $('#quemT', m.el).textContent = fixo ? 'Quem será atendido' : 'Quem vai receber o cuidado';
       $('#pnL', m.el).textContent = fixo ? 'Pacientes ou setor' : 'Nome';
       $('#pn', m.el).placeholder = fixo ? 'Ex.: Pacientes da ala de internação' : 'Ex.: Dona Lúcia';
@@ -170,7 +184,7 @@
     const poeMeses = () => { const ini = $('#ini', m.el).value; if (ini) { const f = DC.addMeses(ini, +$('#mes', m.el).value); $('#fim', m.el).value = f; } };
     $$('#tp [data-t]', m.el).forEach((b) => (b.onclick = () => {
       st.tipo = b.dataset.t; $$('#tp [data-t]', m.el).forEach((x) => x.classList.toggle('on', x === b));
-      if (st.tipo === 'fixo') { if (!ed) poeMeses(); if (st.local === 'residencia') { st.local = 'clinica'; $$('#lc button', m.el).forEach((x) => x.classList.toggle('on', x.dataset.l === 'clinica')); } }
+      if (st.tipo !== 'avulso') { if (st.tipo === 'fixo' && !ed) poeMeses(); if (st.local === 'residencia') { st.local = 'clinica'; $$('#lc button', m.el).forEach((x) => x.classList.toggle('on', x.dataset.l === 'clinica')); } }
       draw();
     }));
     $('#mes', m.el).onchange = () => { poeMeses(); draw(); };
@@ -185,6 +199,19 @@
     ['#fim', '#hd'].forEach((s) => ($(s, m.el).oninput = draw));
     draw();
     $('#env', m.el).onclick = () => DC.busy($('#env', m.el), async () => {
+      if (st.tipo === 'clt') {
+        const cb = { acao: 'criar', tipo: 'clt', pro_id: p.user_id, empresa_nome: $('#emp', m.el).value.trim(), empresa_cnpj: $('#cnpj', m.el).value.replace(/\D/g, ''),
+          cargo: $('#cgo', m.el).value.trim(), salario: +$('#sal', m.el).value || null, jornada: $('#jor', m.el).value.trim(), inicio: $('#cini', m.el).value,
+          beneficios: $('#ben', m.el).value.trim(), local_tipo: st.local, endereco: $('#en', m.el).value.trim(), cidade: $('#ci', m.el).value.trim(), notas: $('#no', m.el).value.trim() };
+        if (!cb.empresa_nome) throw new Error('Informe o nome da empresa');
+        if (!cb.jornada) throw new Error('Informe a jornada ou escala');
+        if (!cb.cidade) throw new Error('Informe a cidade da vaga');
+        const r = await DC.api('/api/contratar', cb);
+        guardaUltimo(Object.assign(ultimo(), { empresa_nome: cb.empresa_nome, empresa_cnpj: cb.empresa_cnpj }));
+        m.close(); DC.toast('Proposta de emprego enviada! Avisamos ' + p.nome.split(' ')[0] + '.');
+        location.hash = 'contratacoes'; setTimeout(() => DC.abrirContratacao(r.id, 'cliente', contratacoes), 250);
+        return;
+      }
       const v = val();
       if (!v.dias.length) throw new Error('Escolha datas e dias da semana');
       const body = { acao: ed ? 'editar' : 'criar', id: ed ? ed.id : undefined, pro_id: p.user_id, modalidade: st.mod, inicio: v.ini, fim: v.fim, horario: $('#hor', m.el).value, horas_dia: v.hd,
@@ -218,8 +245,8 @@
     const L = data || [];
     const tot = (c) => { const v = Array.isArray(c.contratacao_cliente) ? c.contratacao_cliente[0] : c.contratacao_cliente; return v ? brl(v.total, 2) : '—'; };
     const linha = (c) => `<button class="li" data-c="${c.id}" style="width:100%;text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;cursor:pointer">
-      ${DC.av(c.pro_nome, DC.foto(c.pro_id))}<span class="grow"><b>${esc(c.pro_nome)}</b> <span class="small mute">· ${esc(DC.espec(c.especialidade))}</span>${c.tipo === 'fixo' ? ' <span class="tag t-blue">Contrato fixo</span>' : ''}<br><span class="small mute">${c.tipo === 'fixo' && c.empresa_nome ? esc(c.empresa_nome) + ' · ' : ''}${DC.periodo(c)} · ${esc(c.paciente_nome)} · ${esc(DC.LOCAL[c.local_tipo])}</span></span>
-      <span style="text-align:right">${DC.stTag(c.status)}<br><b class="small">${tot(c)}</b></span></button>`;
+      ${DC.av(c.pro_nome, DC.foto(c.pro_id))}<span class="grow"><b>${esc(c.pro_nome)}</b> <span class="small mute">· ${esc(DC.espec(c.especialidade))}</span>${c.tipo === 'fixo' ? ' <span class="tag t-blue">Contrato fixo</span>' : c.tipo === 'clt' ? ' <span class="tag t-blue">Vaga CLT</span>' : ''}<br><span class="small mute">${c.tipo !== 'avulso' && c.empresa_nome ? esc(c.empresa_nome) + ' · ' : ''}${DC.periodo(c)} · ${esc(c.paciente_nome)} · ${esc(DC.LOCAL[c.local_tipo])}</span></span>
+      <span style="text-align:right">${DC.stTag(c.status, c.tipo)}<br><b class="small">${c.tipo === 'clt' ? 'Sem pagamento' : tot(c)}</b></span></button>`;
     const bloco = (tit, F, vazio, extra) => { const X = L.filter(F); return X.length || vazio ? `<div class="card col ${extra || ''}"><h2>${tit}</h2>${X.length ? `<div class="list">${X.map(linha).join('')}</div>` : `<p class="small mute">${vazio}</p>`}</div>` : ''; };
     app.innerHTML = `<div class="head"><div><h1>Minhas contratações</h1><p>Acompanhe pedidos, pague pelo app e converse com o profissional.</p></div><a class="btn" href="#catalogo">Contratar profissional</a></div>
       ${bloco('Pague para confirmar', (c) => c.status === 'aceito', '', 'alerta')}

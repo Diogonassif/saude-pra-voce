@@ -108,7 +108,8 @@
   DC.SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   DC.STATUS = { solicitado: ['Aguardando o profissional', 't-amber'], aceito: ['Aceito · aguardando pagamento', 't-blue'], confirmado: ['Confirmado e pago', 't-green'],
     concluido: ['Concluído', 't-gray'], recusado: ['Não aceito', 't-red'], cancelado: ['Cancelado', 't-red'] };
-  DC.stTag = (s) => { const x = DC.STATUS[s] || [s, 't-gray']; return `<span class="tag ${x[1]}">${DC.esc(x[0])}</span>`; };
+  DC.STATUS_CLT = { solicitado: ['Aguardando resposta', 't-amber'], confirmado: ['Tem interesse', 't-green'], concluido: ['Contratado (CLT)', 't-gray'], recusado: ['Sem interesse', 't-red'], cancelado: ['Cancelada', 't-red'] };
+  DC.stTag = (s, tipo) => { const x = (tipo === 'clt' && DC.STATUS_CLT[s]) || DC.STATUS[s] || [s, 't-gray']; return `<span class="tag ${x[1]}">${DC.esc(x[0])}</span>`; };
   DC.NEC = { aberta: ['Na central', 't-amber'], em_busca: ['Central buscando', 't-blue'], atendida: ['Atendida', 't-green'], cancelada: ['Cancelada', 't-gray'] };
   DC.necTag = (s) => { const x = DC.NEC[s] || [s, 't-gray']; return `<span class="tag ${x[1]}">${DC.esc(x[0])}</span>`; };
   DC.estrelas = (p) => (p.rating ? `<span class="stars">★ ${(+p.rating).toFixed(1).replace('.', ',')}</span> <span class="tiny mute">(${p.n_avaliacoes})</span>` : '<span class="tiny mute">Novo por aqui</span>');

@@ -255,3 +255,4 @@ tr.det-mes > td { background: #F7FAFA; padding: 10px 12px 16px; }
 .nav.semdiv { border-left: 0; padding-left: 0; }
 @media (max-width: 520px) { .hide-m { display: none; } }
 
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }

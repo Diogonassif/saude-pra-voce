@@ -10,6 +10,7 @@ export default handler(async (req, res) => {
   if (!isUuid(b.contratacao_id)) throw fail(400, 'Contratação inválida');
   const c = await one(`contratacoes?id=eq.${b.contratacao_id}&select=*`);
   if (!c || c.cliente_id !== me.id) throw fail(403, 'Só o contratante paga');
+  if (c.tipo === 'clt') throw fail(409, 'Contratação CLT não tem pagamento pelo app');
   const fixo = c.tipo === 'fixo';
   if (!fixo && (c.status === 'confirmado' || c.status === 'concluido')) throw fail(409, 'Este atendimento já está pago');
   if (fixo && !['aceito', 'confirmado'].includes(c.status)) throw fail(409, c.status === 'solicitado' ? 'Aguarde o profissional aceitar o contrato' : 'Este contrato não aceita mais pagamentos');
