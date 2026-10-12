@@ -12,12 +12,12 @@ function frame(t) {
   document.querySelectorAll('.scene').forEach((sc) => {
     const s = +sc.dataset.s, e = +sc.dataset.e, l = t - s;
     if (t < s - 0.01 || t > e + 0.01) { sc.style.opacity = 0; return; }
-    const fin = clamp(l / 0.45), fout = clamp((e - t) / 0.45);
+    const fin = clamp(l / 0.7), fout = clamp((e - t) / 0.6);
     const o = Math.min(ease(fin), sc.dataset.last ? 1 : ease(fout));
     sc.style.opacity = o;
     sc.style.transform = `translateY(${(1 - ease(fin)) * 60 - (1 - (sc.dataset.last ? 1 : ease(fout))) * 60}px)`;
     sc.querySelectorAll('[data-in]').forEach((el) => {
-      const p = clamp((l - +el.dataset.in) / (+el.dataset.dur || 0.6));
+      const p = clamp((l - +el.dataset.in) / (+el.dataset.dur || 0.9));
       const k = el.dataset.fx || 'up';
       el.style.opacity = ease(p);
       if (k === 'up') el.style.transform = `translateY(${(1 - ease(p)) * 50}px)`;
@@ -27,7 +27,7 @@ function frame(t) {
       if (k === 'drop') el.style.transform = `translateY(${(1 - back(p)) * -160}px)`;
     });
     sc.querySelectorAll('[data-type]').forEach((el) => {
-      const a = +el.dataset.type, full = el.dataset.full, sp = +el.dataset.speed || 0.09;
+      const a = +el.dataset.type, full = el.dataset.full, sp = +el.dataset.speed || 0.15;
       const n = Math.max(0, Math.min(full.length, Math.floor((l - a) / sp)));
       el.textContent = full.slice(0, n);
       el.style.setProperty('--cur', l > a - 0.3 && n < full.length + 6 && Math.floor(l * 2.4) % 2 === 0 ? 1 : 0);

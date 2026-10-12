@@ -65,3 +65,19 @@ p.lead b { color: #fff; }
 .tot span { font-size: 28px; color: #A9C8CD; font-weight: 600; } .tot b { display: block; font-size: 84px; font-weight: 800; letter-spacing: -2px; }
 .bub { font-size: 36px; line-height: 1.3; padding: 26px 32px; border-radius: 32px; max-width: 80%; font-weight: 600; }
 .bub.in { background: #fff; color: var(--ink); align-self: flex-start; border-bottom-left-radius: 8px; } .bub.out { background: var(--acc); color: #fff; align-self: flex-end; border-bottom-right-radius: 8px; }
+
+.seal { position: absolute; left: 80px; bottom: 100px; display: flex; align-items: center; gap: 18px; z-index: 6; font-size: 30px; font-weight: 600; color: rgba(255,255,255,.7); letter-spacing: .5px; }
+.seal svg { height: 50px; width: auto; }
+.seal .lg-w { fill: #fff; } .seal .lg-g { fill: #3fa46a; } .seal .lg-b { fill: #9DB8FF; }
+.ilus { bottom: 110px; }
+.steps { display: flex; flex-direction: column; gap: 24px; }
+.step { display: flex; gap: 28px; align-items: center; background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.12); border-radius: 30px; padding: 26px 30px; }
+.step .nº, .step .no { width: 78px; height: 78px; border-radius: 22px; background: var(--acc); color: #fff; font-size: 40px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none; }
+.step b { font-size: 42px; font-weight: 800; display: block; } .step small { font-size: 31px; color: #A9C8CD; font-weight: 500; display: block; margin-top: 4px; line-height: 1.25; }
+.det { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 26px; }
+.det div span { display: block; font-size: 24px; letter-spacing: 1.5px; color: var(--mute); font-weight: 800; text-transform: uppercase; } .det div b { font-size: 34px; font-weight: 800; line-height: 1.25; }
+.flow { display: flex; align-items: center; gap: 18px; }
+.flow .fb { flex: 1; background: #fff; color: var(--ink); border-radius: 30px; padding: 30px 18px; text-align: center; font-size: 32px; font-weight: 800; line-height: 1.2; }
+.flow .fb small { display: block; font-size: 24px; color: var(--mute); font-weight: 600; margin-top: 6px; }
+.flow .ar { font-size: 56px; color: var(--acc2); font-weight: 800; }
+.linha { display: flex; justify-content: space-between; font-size: 38px; font-weight: 700; padding: 14px 0; } .linha.m { color: var(--mute); } .linha.t { font-size: 44px; font-weight: 800; border-top: 3px solid #E3ECEE; padding-top: 22px; margin-top: 8px; }

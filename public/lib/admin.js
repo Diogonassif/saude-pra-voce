@@ -139,7 +139,7 @@
     const L = (P || []).sort((a, z) => (z.especialidade === n.especialidade) - (a.especialidade === n.especialidade));
     const st = { pro: null, mod: n.turno === '24h' ? 'plantao24' : 'hora', semana: [0, 1, 2, 3, 4, 5, 6] };
     const m = DC.modal(`<h2>Indicar profissional · pedido #${n.codigo}</h2><p class="small mute">${esc(n.cliente_nome)} · ${esc(DC.espec(n.especialidade))} · ${esc(n.cidade || '')}</p>
-      <label class="f">Profissional<select class="in" id="pp"><option value="">Escolha</option>${L.map((p) => `<option value="${p.user_id}">${esc(p.nome)} · ${esc(DC.espec(p.especialidade))}${p.cidade ? ' · ' + esc(p.cidade) : ''}${p.verificado ? ' ✓' : ''} · ${brl(p.valor_hora, 2)}/h</option>`).join('')}</select></label>
+      <label class="f">Profissional<select class="in" id="pp"><option value="">Escolha</option>${L.map((p) => { const semCoren = DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren && p.coren_status !== 'ativo'; return `<option value="${p.user_id}" ${semCoren ? 'disabled' : ''}>${esc(p.nome)} · ${esc(DC.espec(p.especialidade))}${p.cidade ? ' · ' + esc(p.cidade) : ''}${p.verificado ? ' ✓' : ''} · ${brl(p.valor_hora, 2)}/h${semCoren ? ' · COREN a conferir' : ''}</option>`; }).join('')}</select></label>
       <div class="seg" id="md">${Object.entries(DC.MODAL).map(([k, v]) => `<button type="button" data-m="${k}" class="${k === st.mod ? 'on' : ''}">${v.nome}</button>`).join('')}</div>
       <div class="grid2">
         <label class="f">Primeiro dia<input class="in" type="date" id="ini" value="${n.inicio && n.inicio >= DC.hoje() ? n.inicio : DC.hoje()}" min="${DC.hoje()}"></label>
@@ -148,6 +148,8 @@
         <label class="f" id="hdL">Horas por dia<input class="in" type="number" id="hd" min="1" max="24" value="${n.horas_dia || 12}"></label>
       </div>
       <div class="sem" id="sem">${DC.SEMANA.map((d, i) => `<button type="button" data-d="${i}" class="on">${d}</button>`).join('')}</div>
+      <div class="grid2" style="grid-template-columns:1fr 200px"><label class="f">Endereço do atendimento${n.endereco ? '' : '<small style="color:var(--red)">o contratante não informou: preencha ou combine com ele</small>'}<input class="in" id="ien" maxlength="300" value="${esc(n.endereco || '')}" placeholder="rua, número, bairro · ou hospital, quarto"></label>
+        <label class="f">Cidade<input class="in" id="ici" maxlength="80" value="${esc(n.cidade || '')}"></label></div>
       <div class="card flat" id="prev"></div>
       <div class="acts"><button class="btn btn-ghost" data-close>Cancelar</button><button class="btn" id="env">Enviar ao profissional</button></div>`, { wide: true, semFoco: true });
     const draw = () => {
@@ -167,8 +169,9 @@
     draw();
     $('#env', m.el).onclick = () => DC.busy($('#env', m.el), async () => {
       if (!$('#pp', m.el).value) throw new Error('Escolha o profissional');
+      if (!$('#ien', m.el).value.trim()) throw new Error('Informe o endereço do atendimento');
       const r = await DC.api('/api/contratar', { acao: 'indicar', necessidade_id: n.id, pro_id: $('#pp', m.el).value, modalidade: st.mod, inicio: $('#ini', m.el).value, fim: $('#fim', m.el).value,
-        horario: $('#hor', m.el).value, horas_dia: +$('#hd', m.el).value, dias_semana: st.semana });
+        horario: $('#hor', m.el).value, horas_dia: +$('#hd', m.el).value, dias_semana: st.semana, endereco: $('#ien', m.el).value.trim(), cidade: $('#ici', m.el).value.trim() });
       m.close(); DC.toast(`Enviado ao profissional · contratante pagará ${brl(r.total_cliente, 2)}`); central();
     });
   }

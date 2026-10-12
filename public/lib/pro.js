@@ -63,9 +63,10 @@
             <div class="row">${pro.publicado ? '<span class="tag t-green">PERFIL NO CATÁLOGO</span>' : '<span class="tag t-amber">PERFIL NÃO PUBLICADO</span>'}${pro.verificado ? '<span class="selo">✓ Selo verificado</span>' : ''}</div></div>
           <div class="card col"><h2>Seus valores</h2>
             <div class="list small">${Object.entries({ valor_hora: 'Por hora', valor_12h: 'Plantão 12h', valor_24h: 'Plantão 24h' }).map(([k, n]) => `<div class="li"><span class="grow">${n}</span><b>${pro[k] ? brl(pro[k], 2) : '—'}</b></div>`).join('')}</div>
-            <p class="small mute">Você define o seu valor e recebe ele inteiro. A taxa da plataforma é somada por cima no preço do contratante.</p><a class="btn btn-ghost btn-sm" href="#perfil">Ajustar valores</a></div>
+            <p class="small mute">Você define o seu valor. A taxa da plataforma não sai dele: é somada por cima no preço do contratante. Tarifas do Mercado Pago seguem a sua conta.</p><a class="btn btn-ghost btn-sm" href="#perfil">Ajustar valores</a></div>
         </div>
-      </div>`;
+      </div><div data-instalar="pro" style="max-width:640px"></div>`;
+    if (window.desenhaInstalar) window.desenhaInstalar();
     liga(inicio);
   }
 
@@ -204,7 +205,7 @@
           <p class="tiny mute">Toque num cuidado para marcar ou desmarcar. Os que você escrever ficam salvos no seu perfil.</p></div>
       </div></div>
       <div class="side">
-        <div class="card col"><h2>Quanto você quer ganhar</h2><p class="small mute">Seu valor chega inteiro para você. A taxa da plataforma é somada por cima no preço que o contratante vê.</p>
+        <div class="card col"><h2>Quanto você quer ganhar</h2><p class="small mute">A taxa da plataforma não sai do seu valor: é somada por cima no preço que o contratante vê. Tarifas do Mercado Pago seguem as condições da sua conta.</p>
           <label class="f">Por hora (obrigatório)<input class="in" type="number" id="vh" min="1" step="0.01" value="${pro.valor_hora ?? ''}"></label>
           <label class="f">Plantão de 12h (opcional)<input class="in" type="number" id="v12" min="1" step="0.01" value="${pro.valor_12h ?? ''}"></label>
           <label class="f">Plantão de 24h (opcional)<input class="in" type="number" id="v24" min="1" step="0.01" value="${pro.valor_24h ?? ''}"></label></div>
@@ -283,7 +284,7 @@
     const L = (await lista()).filter((c) => ['confirmado', 'concluido'].includes(c.status)).sort((a, z) => (z.pago_em || '').localeCompare(a.pago_em || ''));
     const porMes = {};
     L.forEach((c) => { const k = (c.pago_em || c.inicio).slice(0, 7); porMes[k] = (porMes[k] || 0) + totPro(c); });
-    app.innerHTML = `<div class="head"><div><h1>Recebimentos</h1><p>Os pagamentos caem direto na sua conta Mercado Pago, com o seu valor inteiro.</p></div></div>
+    app.innerHTML = `<div class="head"><div><h1>Recebimentos</h1><p>Os pagamentos caem direto na sua conta Mercado Pago. A taxa da plataforma não é descontada do seu valor.</p></div></div>
       <div class="split"><div class="main">
         <div class="card col"><h2>Atendimentos pagos</h2>${L.length ? `<div class="list">${L.map(linha).join('')}</div>` : '<p class="small mute">Nenhum pagamento ainda.</p>'}</div>
       </div><div class="side">

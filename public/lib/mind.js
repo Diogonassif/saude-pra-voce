@@ -37,7 +37,9 @@
         ${[['Site', 'https://saudepravoce.com/'], ['Página para contratantes', '/contratante.html'], ['Página para profissionais', '/profissional.html'],
            ['Vercel (publicação)', 'https://vercel.com/diogo-3765/saude-pra-voce'], ['Supabase (banco)', 'https://supabase.com/dashboard/project/daqmpctkcilfzweqdthh'], ['GitHub (código)', 'https://github.com/Diogonassif/saude-pra-voce']]
           .map(([n, u]) => `<div class="li"><span class="grow">${n}</span><a href="${u}" target="_blank" rel="noopener">abrir</a></div>`).join('')}
-      </div></div>`;
+      </div></div>
+      <div data-instalar="geral" style="max-width:640px"></div>`;
+    if (window.desenhaInstalar) window.desenhaInstalar();
     $$('[data-ext]').forEach((b) => (b.onclick = () => { const d = $('details.extrato'); if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }));
     $$('[data-href]').forEach((b) => (b.onclick = () => { location.href = b.dataset.href; }));
   }

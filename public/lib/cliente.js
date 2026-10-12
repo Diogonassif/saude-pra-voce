@@ -261,7 +261,9 @@
         <label class="f">Nome<input class="in" id="nm" value="${esc(p.nome)}" maxlength="80"></label>
         <label class="f">Celular<input class="in" value="${esc(DC.telBonito(p.telefone))}" disabled></label>
         <label class="f">E-mail (opcional)<small>para entrar também com o e-mail e receber avisos</small><input class="in" id="em" type="email" value="${esc(p.email || '')}"></label>
-        <div class="row"><button class="btn" id="sv">Salvar</button><button class="btn btn-ghost" id="sn">Trocar senha</button></div></div>`;
+        <div class="row"><button class="btn" id="sv">Salvar</button><button class="btn btn-ghost" id="sn">Trocar senha</button></div></div>
+      <div data-instalar="cliente" style="max-width:640px"></div>`;
+    if (window.desenhaInstalar) window.desenhaInstalar();
     $('#sv').onclick = () => DC.busy($('#sv'), async () => {
       const em = $('#em').value.trim();
       if (em && !/^\S+@\S+\.\S+$/.test(em)) throw new Error('E-mail inválido');

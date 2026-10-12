@@ -45,6 +45,7 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   </section>
 
   <section class="card col" id="vidBox" aria-label="Vídeo: como funciona"></section>
+  <div id="instBox" data-instalar="geral"></div>
 
   <section class="card col hide" id="papelBox">
     <div><h2>Como você vai usar a Saúde Pra Você?</h2><p class="mute small">Escolha uma vez. Para usar dos dois jeitos, crie outra conta com outro celular.</p></div>
@@ -58,6 +59,7 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/lib/config.js"></script>
 <script src="/lib/dc.js"></script>
+<script src="/lib/instalar.js"></script>
 <script>
 (async function () {
   const { $, $$, sb } = DC;
@@ -92,11 +94,12 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   const mostraVideo = (k) => {
     const v = VID[k];
     $('#vidBox').innerHTML = `${como ? '' : `<div class="seg2"><button type="button" class="btn btn-sm ${k === 'cliente' ? '' : 'btn-ghost'}" data-v="cliente">Quero contratar</button><button type="button" class="btn btn-sm ${k === 'pro' ? '' : 'btn-ghost'}" data-v="pro">Sou profissional</button></div>`}
-      <div><h2 style="font-size:19px">${v[2]}</h2><p class="small mute">${v[3]} · 45 segundos</p></div>
+      <div><h2 style="font-size:19px">${v[2]}</h2><p class="small mute">${v[3]} · cerca de 1min30</p></div>
       <video src="${v[0]}" poster="${v[1]}" controls playsinline preload="none"></video>`;
     $$('#vidBox [data-v]').forEach((b) => (b.onclick = () => mostraVideo(b.dataset.v)));
   };
   mostraVideo(como === 'pro' ? 'pro' : 'cliente');
+  if (como) $('#instBox').dataset.instalar = como;
 
   const modo = (c) => {
     criar = c;
