@@ -5,11 +5,6 @@
   DC.topo(me, [['painel', 'Painel']], 'Mind');
   const app = $('#app');
 
-  const perfis = [
-    ['/cliente.html', 'Contratante', 'Catálogo, contratar um profissional, pagar, pedir à central e acompanhar as contratações.', 'Ver como contratante'],
-    ['/pro.html', 'Profissional de saúde', 'Perfil e valores, COREN, pedidos, agenda e recebimentos. Usa o seu perfil de profissional de teste.', 'Ver como profissional'],
-    ['/admin.html', 'Gestão (Central)', 'Visão geral, pedidos da central, contratações, profissionais, COREN, financeiro e taxas.', 'Entrar na gestão'],
-  ];
 
   async function painel() {
     const [pg, rp, pr, cl, ct] = await Promise.all([
@@ -24,8 +19,7 @@
     const devido = Math.round((mindTotal - repassado) * 100) / 100;
     const corenFila = pros.filter((p) => DC.ESPEC[p.especialidade] && DC.ESPEC[p.especialidade].coren && p.coren && p.coren_status === 'pendente').length;
 
-    app.innerHTML = `<div class="head"><div><h1>Painel Mind</h1><p>Olá, ${esc((me.nome || '').split(' ')[0])}. Entre no app como qualquer perfil. Em todas as telas o botão <b>Mind</b>, no topo, traz você de volta.</p></div></div>
-      <div class="grid2">${perfis.map(([href, nome, txt, bt]) => `<div class="card col"><h2>${nome}</h2><p class="small mute grow">${txt}</p><a class="btn btn-block" href="${href}">${bt}</a></div>`).join('')}</div>
+    app.innerHTML = `<div class="head"><div><h1>Painel Mind</h1><p>Olá, ${esc((me.nome || '').split(' ')[0])}. Para ver o app como contratante, profissional ou gestão, use a barra <b>Modo gestor</b> no alto da tela.</p></div></div>
       ${extrato(P, R, devido)}
       <div class="grid2">
         <div class="card kpi go" data-ext="1" title="Toque para ver os lançamentos"><span class="small mute">Mind: total dos 10%</span><div class="v">${brl(mindTotal, 2)}</div><span class="small mute">${P.length} pagamento(s) aprovado(s)</span></div>
