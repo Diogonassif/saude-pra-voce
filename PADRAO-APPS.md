@@ -7,6 +7,7 @@ Quando um item muda, a mudança é copiada para todos os apps.
 |---|---|---|
 | P-001 | 2026-10-12 | Botão de olho em todo campo de senha (mostrar/esconder). HTML: `mind-padrao.js`. React: `SenhaInput`. |
 | P-002 | 2026-10-12 | Troca de perfil "Ver como" no topo (modelo My Job It). |
+| P-003 | 2026-10-13 | Visual e navegação únicos (modelo My Job IT). Tela de entrada: fundo escuro com a cor do app, logo e frase no topo, cartão branco, rótulos em cima, botão largo, "Esqueci a senha", "Primeira vez aqui? Criar conta", termos no pé e "Solution by MindFy Tech". Fonte Plus Jakarta Sans, cantos 10–16 px, cores de status iguais. HTML: `lib/mind-padrao.css` (igual em todos; cada app só define `--mp-cor` e o fundo). |
 
 ## P-002 · Troca de perfil ("Ver como")
 
