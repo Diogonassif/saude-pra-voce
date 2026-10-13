@@ -24,6 +24,7 @@ async function planejarPedido(b, clienteId, baseFixa) {
   const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,coren_status,valor_hora,valor_12h,valor_24h`);
   if (!pro || !pro.publicado) throw fail(404, 'Este profissional não está disponível agora');
   if (['tecnico', 'enfermeiro'].includes(pro.especialidade) && pro.coren_status !== 'ativo') throw fail(409, 'O COREN deste profissional ainda não foi conferido pela central');
+  if (!pro.especialidade || !(+pro.valor_hora > 0)) throw fail(409, 'Este profissional ainda não completou o cadastro (especialidade e valor). Escolha outro.');
   if (pro.user_id === clienteId) throw fail(400, 'Você não pode contratar a si mesmo');
   const modalidade = MODAL[b.modalidade] ? b.modalidade : 'hora';
   const base = baseFixa > 0 ? +baseFixa : +pro[MODAL[modalidade].campo];
@@ -81,8 +82,9 @@ async function gerarParcelas(id) {
 // contratação CLT: só aproxima empresa e profissional (sem pagamento nem agenda no app)
 async function criarCLT(b, clienteId, origem, necessidadeId) {
   if (!isUuid(b.pro_id)) throw fail(400, 'Escolha um profissional');
-  const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,coren_status`);
+  const pro = await one(`pros?user_id=eq.${b.pro_id}&select=user_id,nome,especialidade,publicado,coren_status,valor_hora`);
   if (!pro || !pro.publicado) throw fail(404, 'Este profissional não está disponível agora');
+  if (!pro.especialidade || !(+pro.valor_hora > 0)) throw fail(409, 'Este profissional ainda não completou o cadastro. Escolha outro.');
   if (['tecnico', 'enfermeiro'].includes(pro.especialidade) && pro.coren_status !== 'ativo') throw fail(409, 'O COREN deste profissional ainda não foi conferido pela central');
   if (pro.user_id === clienteId) throw fail(400, 'Você não pode contratar a si mesmo');
   const empresa = txt(b.empresa_nome, 120), cnpj = String(b.empresa_cnpj || '').replace(/\D/g, '');

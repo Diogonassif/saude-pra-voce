@@ -222,7 +222,7 @@
       ]);
       const campo = DC.MODAL[c.modalidade].campo.replace('preco', 'valor');
       const tx = 1 + ((+(DC.cfg.taxa_debcare ?? 15)) + (+(DC.cfg.taxa_mind ?? 10))) / 100;
-      const L = (pros || []).filter((p) => +p[campo] > 0 && (!DC.ESPEC[p.especialidade].coren || p.coren_status === 'ativo'))
+      const L = (pros || []).filter((p) => p.especialidade && DC.ESPEC[p.especialidade] && +p.valor_hora > 0 && +p[campo] > 0 && (!DC.ESPEC[p.especialidade].coren || p.coren_status === 'ativo'))
         .map((p) => ({ p, ocupado: (ag || []).some((a) => a.pro_id === p.user_id), mesma: p.especialidade === c.especialidade }))
         .sort((a, b) => (b.mesma - a.mesma) || (a.ocupado - b.ocupado) || ((+b.p.rating || 0) - (+a.p.rating || 0)));
       const mm = DC.modal(`<h2>Recomendar outro profissional</h2><p class="small mute">Criamos um pedido novo com os mesmos dados (${DC.periodo(c)} · ${esc(DC.qtdTxt(c))}) para o profissional escolhido${c.status === 'recusado' ? '' : ' e cancelamos este'}. O contratante é avisado.</p>

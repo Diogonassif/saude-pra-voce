@@ -169,7 +169,9 @@
   async function indicar(n) {
     const [{ data: P }, din] = await Promise.all([sb.from('pros').select('*').eq('publicado', true).order('verificado', { ascending: false }), Promise.resolve(null)]);
     const tx = { d: +(DC.cfg.taxa_debcare ?? 15), m: +(DC.cfg.taxa_mind ?? 10) };
-    const L = (P || []).sort((a, z) => (z.especialidade === n.especialidade) - (a.especialidade === n.especialidade));
+    // só quem pode ser contratado: perfil completo (especialidade e valor por hora) e, na enfermagem, COREN conferido — as mesmas regras do catálogo
+    const completo = (p) => p.especialidade && DC.ESPEC[p.especialidade] && +p.valor_hora > 0 && (!DC.ESPEC[p.especialidade].coren || p.coren_status === 'ativo');
+    const L = (P || []).filter(completo).sort((a, z) => (z.especialidade === n.especialidade) - (a.especialidade === n.especialidade));
     const st = { pro: null, mod: n.turno === '24h' ? 'plantao24' : 'hora', semana: [0, 1, 2, 3, 4, 5, 6] };
     const m = DC.modal(`<h2>Indicar profissional · pedido #${n.codigo}</h2><p class="small mute">${esc(n.cliente_nome)} · ${esc(DC.espec(n.especialidade))} · ${esc(n.cidade || '')}</p>
       ${n.tipo === 'fixo' ? `<div class="banner info">🏥 <b>Contrato fixo</b>${n.empresa_nome ? ' de ' + esc(n.empresa_nome) : ''}${n.meses ? ' por ' + n.meses + (n.meses === 1 ? ' mês' : ' meses') : ''}: vai ao profissional como contrato fixo, com pagamento em parcelas mensais.</div>` : ''}
