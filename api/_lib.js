@@ -71,13 +71,14 @@ export const shell = (title, body, cta) => `<div style="font-family:Arial,Helvet
 <div style="border:1px solid #DCE6E8;border-top:0;padding:20px;border-radius:0 0 12px 12px"><h2 style="margin:0 0 12px;font-size:18px">${escH(title)}</h2>${body}
 ${cta ? `<p style="margin:20px 0 0"><a href="${escH(cta.url)}" style="background:#17705F;color:#fff;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:bold">${escH(cta.label)}</a></p>` : ''}</div>
 <p style="font-size:12px;color:#5A6B72">Saúde Pra Você · tecnologia MindFy Tech</p></div>`;
-export async function sendEmail({ to, subject, html }) {
+export async function sendEmail({ to, subject, html, from, replyTo, headers }) {
   const key = env('RESEND_API_KEY');
   const list = [].concat(to).filter(Boolean);
   if (!key || !list.length) { console.log('[email não enviado]', subject, list.join(',')); return false; }
   try {
     const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { authorization: 'Bearer ' + key, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: env('EMAIL_FROM') || 'Saúde Pra Você <nao-responda@mindfytech.com>', to: list, subject, html }) });
+      body: JSON.stringify(Object.assign({ from: from || env('EMAIL_FROM') || 'Saúde Pra Você <nao-responda@saudepravoce.com>', to: list, subject, html },
+        replyTo ? { reply_to: replyTo } : {}, headers ? { headers } : {})) });
     if (!r.ok) { console.log('[email falhou]', r.status, await r.text()); return false; }
     return true;
   } catch (e) { console.log('[email erro]', e.message); return false; }

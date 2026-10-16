@@ -3,7 +3,7 @@
   const { $, $$, sb, esc, brl } = DC;
   const me = await DC.boot('admin'); if (!me) return;
   if (!me.isAdmin) { location.replace(DC.home(me.role)); return; }
-  DC.topo(me, [['visao', 'Visão geral'], ['central', 'Central'], ['contratacoes', 'Contratações'], ['profissionais', 'Profissionais'], ['contratantes', 'Contratantes'], ['financeiro', 'Financeiro'], ['config', 'Taxas e central']], 'Central');
+  DC.topo(me, [['visao', 'Visão geral'], ['central', 'Central'], ['contratacoes', 'Contratações'], ['profissionais', 'Profissionais'], ['contratantes', 'Contratantes'], ['financeiro', 'Financeiro'], ['campanhas', 'Campanhas'], ['config', 'Taxas e central']], 'Central');
   const app = $('#app');
   const mesAtual = DC.hoje().slice(0, 7);
   let filtroStatus = '';
@@ -423,9 +423,80 @@
     });
   }
 
+
+  // ------------------------------------------------------------------ campanhas de convite por e-mail
+  const CAMP_TXT = { assunto: 'Convite: receba pedidos de famílias de Franca pela Saúde Pra Você',
+    corpo: 'Olá, {nome}!\n\nSomos a Saúde Pra Você, um app de Franca e região que liga famílias e clínicas a enfermeiros, técnicos de enfermagem, cuidadores e fisioterapeutas.\n\nVocê monta o seu perfil, define o seu próprio valor e a sua agenda, e recebe pedidos com pagamento garantido pelo app, direto na sua conta Mercado Pago. Clínicas também podem propor contrato fixo ou vaga CLT.\n\nO cadastro é grátis e leva 3 minutos.' };
+  let campAtual = null;
+  async function campanhas() {
+    const [{ data, error }, st] = await Promise.all([
+      sb.from('campanha_contatos').select('*').order('created_at').limit(2000),
+      fetch('/api/campanha').then((r) => r.json()).catch(() => ({})),
+    ]);
+    if (error) throw error;
+    const L = data || [];
+    const nomes = [...new Set(L.map((c) => c.campanha))];
+    if (!campAtual || !nomes.includes(campAtual)) campAtual = nomes[0] || 'Franca · profissionais';
+    const C = L.filter((c) => c.campanha === campAtual);
+    const n = (s) => C.filter((c) => c.status === s).length;
+    let txt = CAMP_TXT; try { txt = Object.assign({}, CAMP_TXT, JSON.parse(localStorage.getItem('dc_camp_txt') || '{}')); } catch (e) {}
+    const ST = { pendente: ['Pendente', 't-amber'], enviado: ['Enviado', 't-blue'], erro: ['Erro', 't-red'], descadastrado: ['Descadastrou', 't-gray'], cadastrou: ['Cadastrou', 't-green'] };
+    app.innerHTML = `<div class="head"><div><h1>Campanhas</h1><p>Convites por e-mail enviados pelo app como <b>convite@saudepravoce.com</b>, com link de descadastro (LGPD).</p></div>
+        ${nomes.length > 1 ? `<select class="in" id="cpSel" style="width:auto">${nomes.map((x) => `<option ${x === campAtual ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}</div>
+      ${st.email ? '' : '<div class="banner">⚠️ O envio de e-mails do app ainda não está ativo: falta configurar o Resend com o domínio saudepravoce.com. Você já pode montar a lista e o texto; o botão de enviar funciona assim que o Resend estiver ligado.</div>'}
+      <div class="grid2">
+        <div class="card kpi"><span class="small mute">${esc(campAtual)}</span><div class="v">${C.length}</div><span class="small mute">contatos</span></div>
+        <div class="card kpi"><span class="small mute">Pendentes</span><div class="v">${n('pendente')}</div><span class="small mute">${n('enviado')} enviados · ${n('erro')} com erro</span></div>
+        <div class="card kpi"><span class="small mute">Clicaram no convite</span><div class="v">${C.filter((c) => c.clicou_em).length}</div><span class="small mute">${n('descadastrado')} descadastrados</span></div>
+      </div>
+      <div class="card col"><h2>Texto do convite</h2>
+        <label class="f">Assunto<input class="in" id="cpAs" maxlength="150" value="${esc(txt.assunto)}"></label>
+        <label class="f">Mensagem<small>{nome} vira o primeiro nome da pessoa. O botão "Quero me cadastrar grátis" e o link de descadastro entram sozinhos no fim.</small><textarea class="in" id="cpCo" maxlength="4000" style="min-height:200px">${esc(txt.corpo)}</textarea></label>
+        <label class="f">Respostas vão para (opcional)<input class="in" id="cpRe" type="email" placeholder="ex.: seu e-mail · em branco = sem resposta por e-mail" value="${esc(txt.responder || '')}"></label>
+        <div class="row"><button class="btn btn-ghost" id="cpPrev">Ver como fica</button><button class="btn btn-green" id="cpEnv" ${n('pendente') ? '' : 'disabled'}>Enviar para ${n('pendente')} pendente(s)</button></div></div>
+      <div class="card col"><h2>Contatos</h2>
+        <div class="tbl-box"><table class="tbl small"><thead><tr><th>Nome</th><th>Cargo · onde trabalha</th><th>E-mail</th><th>Situação</th><th></th></tr></thead><tbody>
+          ${C.map((c) => `<tr><td><b>${esc(c.nome)}</b>${c.nota ? `<br><span class="tag t-amber">${esc(c.nota)}</span>` : ''}</td><td>${esc(c.cargo)}${c.empresa ? '<br><span class="mute">' + esc(c.empresa) + '</span>' : ''}</td><td>${esc(c.email)}</td>
+            <td><span class="tag ${ST[c.status][1]}">${ST[c.status][0]}</span>${c.clicou_em ? '<br><span class="tag t-green">Clicou</span>' : ''}</td>
+            <td>${c.status === 'pendente' ? `<button class="btn btn-sm btn-ghost" data-cprm="${c.id}" title="Tirar da campanha">Tirar</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">Nenhum contato ainda.</td></tr>'}
+        </tbody></table></div>
+        <details><summary class="small"><b>Adicionar contatos</b></summary><div class="col" style="margin-top:10px">
+          <label class="f">Um por linha: nome; e-mail; cargo; onde trabalha<textarea class="in" id="cpAdd" style="min-height:100px" placeholder="Maria Souza; maria@gmail.com; Cuidadora; Particular"></textarea></label>
+          <label class="f">Campanha<input class="in" id="cpNome" value="${esc(campAtual)}" maxlength="80"></label>
+          <button class="btn btn-sm" id="cpAddOk">Adicionar</button></div></details></div>`;
+    const guarda = () => { try { localStorage.setItem('dc_camp_txt', JSON.stringify({ assunto: $('#cpAs').value, corpo: $('#cpCo').value, responder: $('#cpRe').value })); } catch (e) {} };
+    ['#cpAs', '#cpCo', '#cpRe'].forEach((s) => ($(s).oninput = guarda));
+    if ($('#cpSel')) $('#cpSel').onchange = (e) => { campAtual = e.target.value; campanhas(); };
+    $('#cpPrev').onclick = () => DC.busy($('#cpPrev'), async () => {
+      const r = await DC.api('/api/campanha', { acao: 'previa', corpo: $('#cpCo').value, nome: (C[0] && C[0].nome) || 'Maria' });
+      const m = DC.modal(`<h2>${esc($('#cpAs').value)}</h2><p class="small mute">De: Saúde Pra Você &lt;convite@saudepravoce.com&gt;</p><iframe id="cpIf" style="width:100%;height:520px;border:1px solid var(--line);border-radius:12px;background:#fff"></iframe><div class="acts"><button class="btn" data-close>Fechar</button></div>`, { wide: true });
+      $('#cpIf', m.el).srcdoc = r.html;
+    });
+    $$('[data-cprm]').forEach((b) => (b.onclick = () => DC.busy(b, async () => { const { error: e } = await sb.from('campanha_contatos').delete().eq('id', b.dataset.cprm); if (e) throw e; campanhas(); })));
+    $('#cpAddOk').onclick = () => DC.busy($('#cpAddOk'), async () => {
+      const camp = $('#cpNome').value.trim() || campAtual;
+      const rows = $('#cpAdd').value.split('\n').map((l) => l.split(/[;\t]/).map((x) => x.trim())).filter((x) => x[1] && /^\S+@\S+\.\S+$/.test(x[1]))
+        .map(([nome, email, cargo, empresa]) => ({ campanha: camp, nome: nome || '', email: email.toLowerCase(), cargo: cargo || '', empresa: empresa || '', origem: 'manual' }));
+      if (!rows.length) throw new Error('Nenhuma linha com e-mail válido');
+      const { error: e } = await sb.from('campanha_contatos').upsert(rows, { onConflict: 'campanha,email', ignoreDuplicates: true });
+      if (e) throw e; campAtual = camp; DC.toast(rows.length + ' contato(s) adicionados'); campanhas();
+    });
+    $('#cpEnv').onclick = () => DC.busy($('#cpEnv'), async () => {
+      guarda();
+      if (!(await DC.confirm(`Enviar o convite agora para ${n('pendente')} pessoa(s) da campanha "${campAtual}"? Não dá para desfazer.`, 'Enviar agora'))) return;
+      let tot = 0, err = 0, r;
+      do {
+        r = await DC.api('/api/campanha', { acao: 'enviar', campanha: campAtual, assunto: $('#cpAs').value, corpo: $('#cpCo').value, responder: $('#cpRe').value.trim() || null });
+        tot += r.enviados; err += r.erros;
+        $('#cpEnv').textContent = `Enviando… ${tot} enviados`;
+      } while (r.restam > 0 && r.enviados + r.erros > 0);
+      DC.toast(`${tot} convite(s) enviados${err ? ' · ' + err + ' com erro' : ''}`, err > 0); campanhas();
+    });
+  }
+
   // abas: iniciadas por último, depois de todas as funções existirem
-  DC.tabs(['visao', 'central', 'contratacoes', 'profissionais', 'contratantes', 'financeiro', 'config'], (t) => {
+  DC.tabs(['visao', 'central', 'contratacoes', 'profissionais', 'contratantes', 'financeiro', 'campanhas', 'config'], (t) => {
     app.innerHTML = '<div class="empty"><span class="spin"></span></div>';
-    return ({ visao, central, contratacoes, profissionais, contratantes, financeiro, config })[t]().catch(DC.erro);
+    return ({ visao, central, contratacoes, profissionais, contratantes, financeiro, campanhas, config })[t]().catch(DC.erro);
   });
 })();
