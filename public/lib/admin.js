@@ -473,7 +473,7 @@
         <p class="small mute">O WhatsApp não permite disparo automático em massa de um número comum (o número é bloqueado). Por isso a campanha é feita em dois caminhos seguros: <b>grupos e Status</b> (um post alcança muita gente) e <b>contatos individuais</b>, um toque por pessoa, com a mensagem já pronta e o link de cadastro rastreado.</p>
         <h3>1. Grupos de Franca e Status</h3>
         <label class="f">Mensagem para grupos (cuidadores, enfermagem, fisioterapia de Franca)<textarea class="in" id="waGrupo" style="min-height:170px">${esc(WA_TXT.grupo)}</textarea></label>
-        <div class="row"><button class="btn btn-sm" data-copia="waGrupo">Copiar mensagem</button><a class="btn btn-sm btn-green" id="waGrupoAbre" target="_blank" rel="noopener">Abrir no WhatsApp e escolher o grupo</a><a class="btn btn-sm btn-ghost" href="/campanha/convite-franca.png" download="convite-saude-pra-voce.png">Baixar imagem do convite</a></div>
+        <div class="row"><button class="btn btn-sm" data-copia="waGrupo">Copiar mensagem</button><a class="btn btn-sm btn-green" id="waGrupoAbre" target="_blank" rel="noopener">Abrir no WhatsApp e escolher o grupo</a><a class="btn btn-sm btn-ghost" href="/campanha/convite-franca.png" download="convite-saude-pra-voce-franca.png">Imagem · Franca</a><a class="btn btn-sm btn-ghost" href="/campanha/convite-ribeirao-preto.png" download="convite-saude-pra-voce-ribeirao-preto.png">Imagem · Ribeirão Preto</a></div>
         <label class="f">Texto para o Status<textarea class="in" id="waStatus" style="min-height:90px">${esc(WA_TXT.status)}</textarea></label>
         <div class="row"><button class="btn btn-sm" data-copia="waStatus">Copiar texto do Status</button></div>
         <h3>2. Contatos individuais</h3>
