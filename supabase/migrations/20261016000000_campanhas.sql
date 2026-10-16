@@ -1,9 +1,11 @@
--- Campanhas de convite por e-mail (gestão): contatos, envio pelo app (convite@saudepravoce.com) e descadastro (LGPD).
+-- Campanhas de convite por e-mail e WhatsApp (gestão): contatos, envio pelo app (convite@saudepravoce.com) e descadastro (LGPD).
 create table if not exists public.campanha_contatos (
   id uuid primary key default gen_random_uuid(),
   campanha text not null,
   nome text not null default '',
-  email text not null,
+  email text,
+  telefone text,
+  canal text not null default 'email' check (canal in ('email','whatsapp')),
   cargo text not null default '',
   empresa text not null default '',
   cidade text not null default '',
@@ -14,7 +16,8 @@ create table if not exists public.campanha_contatos (
   clicou_em timestamptz,
   nota text not null default '',
   created_at timestamptz not null default now(),
-  unique (campanha, email)
+  unique (campanha, email),
+  unique (campanha, telefone)
 );
 create index if not exists campanha_contatos_camp_idx on public.campanha_contatos(campanha, status);
 

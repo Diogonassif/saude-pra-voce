@@ -36,8 +36,10 @@ export default handler(async (req, res) => {
     if (sair && isUuid(sair)) {
       const c = await one(`campanha_contatos?token=eq.${sair}&select=id,email`);
       if (c) {
-        await admin('descadastros?on_conflict=email', { method: 'POST', prefer: 'resolution=ignore-duplicates', body: { email: c.email.toLowerCase() } });
-        await admin(`campanha_contatos?email=eq.${encodeURIComponent(c.email)}`, { method: 'PATCH', body: { status: 'descadastrado' } });
+        if (c.email) {
+          await admin('descadastros?on_conflict=email', { method: 'POST', prefer: 'resolution=ignore-duplicates', body: { email: c.email.toLowerCase() } });
+          await admin(`campanha_contatos?email=eq.${encodeURIComponent(c.email)}`, { method: 'PATCH', body: { status: 'descadastrado' } });
+        } else await admin(`campanha_contatos?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'descadastrado' } });
       }
       res.statusCode = 200; res.setHeader('content-type', 'text/html; charset=utf-8');
       return res.end(pagina('Pronto, você foi descadastrado', 'Você não vai receber mais e-mails de convite da Saúde Pra Você. Desculpe o incômodo.'));
@@ -56,7 +58,7 @@ export default handler(async (req, res) => {
     const corpo = String(b.corpo || '').trim().slice(0, 4000);
     if (!campanha || !assunto || corpo.length < 20) throw fail(400, 'Preencha o assunto e o texto do convite');
     const limite = Math.min(25, Math.max(1, +b.limite || 25));
-    const pend = (await admin(`campanha_contatos?campanha=eq.${encodeURIComponent(campanha)}&status=eq.pendente&select=id,nome,email,token&order=created_at&limit=${limite}`)) || [];
+    const pend = (await admin(`campanha_contatos?campanha=eq.${encodeURIComponent(campanha)}&canal=eq.email&status=eq.pendente&email=not.is.null&select=id,nome,email,token&order=created_at&limit=${limite}`)) || [];
     const fora = new Set(((await admin('descadastros?select=email')) || []).map((x) => x.email.toLowerCase()));
     let enviados = 0, erros = 0;
     for (const c of pend) {
@@ -67,7 +69,7 @@ export default handler(async (req, res) => {
       if (ok) enviados++; else erros++;
       await new Promise((r) => setTimeout(r, 250));
     }
-    const resta = (await admin(`campanha_contatos?campanha=eq.${encodeURIComponent(campanha)}&status=eq.pendente&select=id`)) || [];
+    const resta = (await admin(`campanha_contatos?campanha=eq.${encodeURIComponent(campanha)}&canal=eq.email&status=eq.pendente&select=id`)) || [];
     return send(res, 200, { ok: true, enviados, erros, restam: resta.length });
   }
 

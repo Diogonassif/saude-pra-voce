@@ -427,6 +427,10 @@
   // ------------------------------------------------------------------ campanhas de convite por e-mail
   const CAMP_TXT = { assunto: 'Convite: receba pedidos de famílias de Franca pela Saúde Pra Você',
     corpo: 'Olá, {nome}!\n\nSomos a Saúde Pra Você, um app de Franca e região que liga famílias e clínicas a enfermeiros, técnicos de enfermagem, cuidadores e fisioterapeutas.\n\nVocê monta o seu perfil, define o seu próprio valor e a sua agenda, e recebe pedidos com pagamento garantido pelo app, direto na sua conta Mercado Pago. Clínicas também podem propor contrato fixo ou vaga CLT.\n\nO cadastro é grátis e leva 3 minutos.' };
+  const WA_TXT = {
+    grupo: '👩‍⚕️ *Cuidadores, técnicos de enfermagem, enfermeiros e fisioterapeutas de Franca!*\n\nChegou a *Saúde Pra Você*, o app de Franca que liga famílias e clínicas a profissionais de saúde.\n\n✅ Você monta o seu perfil e define o *seu próprio valor*\n✅ Organiza a sua agenda\n✅ Recebe pedidos de famílias e clínicas da região\n✅ Pagamento garantido pelo app, direto na sua conta Mercado Pago\n✅ Clínicas também oferecem contrato fixo e vagas CLT\n\nCadastro grátis em 3 minutos 👉 https://saudepravoce.com/profissional.html',
+    status: 'Profissional de saúde em Franca? 👩‍⚕️ Cadastre-se grátis na Saúde Pra Você, defina o seu valor e receba pedidos de famílias e clínicas da região 👉 saudepravoce.com/profissional.html',
+    ind: 'Olá, {nome}! Tudo bem? Aqui é da Saúde Pra Você, um app de Franca que liga famílias e clínicas a cuidadores, técnicos de enfermagem, enfermeiros e fisioterapeutas.\n\nNo app você define o seu próprio valor e a sua agenda, e recebe pedidos com pagamento garantido. O cadastro é grátis e leva 3 minutos:' };
   let campAtual = null;
   async function campanhas() {
     const [{ data, error }, st] = await Promise.all([
@@ -437,7 +441,8 @@
     const L = data || [];
     const nomes = [...new Set(L.map((c) => c.campanha))];
     if (!campAtual || !nomes.includes(campAtual)) campAtual = nomes[0] || 'Franca · profissionais';
-    const C = L.filter((c) => c.campanha === campAtual);
+    const CT = L.filter((c) => c.campanha === campAtual);
+    const C = CT.filter((c) => c.canal !== 'whatsapp'), W = CT.filter((c) => c.canal === 'whatsapp');
     const n = (s) => C.filter((c) => c.status === s).length;
     let txt = CAMP_TXT; try { txt = Object.assign({}, CAMP_TXT, JSON.parse(localStorage.getItem('dc_camp_txt') || '{}')); } catch (e) {}
     const ST = { pendente: ['Pendente', 't-amber'], enviado: ['Enviado', 't-blue'], erro: ['Erro', 't-red'], descadastrado: ['Descadastrou', 't-gray'], cadastrou: ['Cadastrou', 't-green'] };
@@ -463,7 +468,23 @@
         <details><summary class="small"><b>Adicionar contatos</b></summary><div class="col" style="margin-top:10px">
           <label class="f">Um por linha: nome; e-mail; cargo; onde trabalha<textarea class="in" id="cpAdd" style="min-height:100px" placeholder="Maria Souza; maria@gmail.com; Cuidadora; Particular"></textarea></label>
           <label class="f">Campanha<input class="in" id="cpNome" value="${esc(campAtual)}" maxlength="80"></label>
-          <button class="btn btn-sm" id="cpAddOk">Adicionar</button></div></details></div>`;
+          <button class="btn btn-sm" id="cpAddOk">Adicionar</button></div></details></div>
+      <div class="card col"><h2>💬 Campanha por WhatsApp</h2>
+        <p class="small mute">O WhatsApp não permite disparo automático em massa de um número comum (o número é bloqueado). Por isso a campanha é feita em dois caminhos seguros: <b>grupos e Status</b> (um post alcança muita gente) e <b>contatos individuais</b>, um toque por pessoa, com a mensagem já pronta e o link de cadastro rastreado.</p>
+        <h3>1. Grupos de Franca e Status</h3>
+        <label class="f">Mensagem para grupos (cuidadores, enfermagem, fisioterapia de Franca)<textarea class="in" id="waGrupo" style="min-height:170px">${esc(WA_TXT.grupo)}</textarea></label>
+        <div class="row"><button class="btn btn-sm" data-copia="waGrupo">Copiar mensagem</button><a class="btn btn-sm btn-green" id="waGrupoAbre" target="_blank" rel="noopener">Abrir no WhatsApp e escolher o grupo</a><a class="btn btn-sm btn-ghost" href="/campanha/convite-franca.png" download="convite-saude-pra-voce.png">Baixar imagem do convite</a></div>
+        <label class="f">Texto para o Status<textarea class="in" id="waStatus" style="min-height:90px">${esc(WA_TXT.status)}</textarea></label>
+        <div class="row"><button class="btn btn-sm" data-copia="waStatus">Copiar texto do Status</button></div>
+        <h3>2. Contatos individuais</h3>
+        <label class="f">Mensagem individual<small>{nome} vira o primeiro nome. O link de cadastro rastreado entra no fim.</small><textarea class="in" id="waInd" style="min-height:150px">${esc(WA_TXT.ind)}</textarea></label>
+        <div class="tbl-box"><table class="tbl small"><thead><tr><th>Nome</th><th>Celular</th><th>Cargo</th><th>Situação</th><th></th></tr></thead><tbody>
+          ${W.map((c) => `<tr><td><b>${esc(c.nome)}</b></td><td>${esc(DC.telBonito(c.telefone))}</td><td>${esc(c.cargo)}</td><td><span class="tag ${ST[c.status][1]}">${ST[c.status][0]}</span>${c.clicou_em ? '<br><span class="tag t-green">Clicou</span>' : ''}</td>
+            <td class="row">${c.status !== 'descadastrado' ? `<button class="btn btn-sm btn-green" data-waabre="${c.id}">${c.status === 'enviado' ? 'Abrir de novo' : 'Abrir WhatsApp'}</button><button class="btn btn-sm btn-ghost" data-wasai="${c.id}" title="A pessoa pediu para não receber">Pediu SAIR</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">Nenhum contato de WhatsApp ainda. Adicione abaixo.</td></tr>'}
+        </tbody></table></div>
+        <details><summary class="small"><b>Adicionar contatos de WhatsApp</b></summary><div class="col" style="margin-top:10px">
+          <label class="f">Um por linha: nome; celular com DDD; cargo<textarea class="in" id="waAdd" style="min-height:100px" placeholder="Maria Souza; (16) 99999-0000; Cuidadora"></textarea></label>
+          <button class="btn btn-sm" id="waAddOk">Adicionar</button></div></details></div>`;
     const guarda = () => { try { localStorage.setItem('dc_camp_txt', JSON.stringify({ assunto: $('#cpAs').value, corpo: $('#cpCo').value, responder: $('#cpRe').value })); } catch (e) {} };
     ['#cpAs', '#cpCo', '#cpRe'].forEach((s) => ($(s).oninput = guarda));
     if ($('#cpSel')) $('#cpSel').onchange = (e) => { campAtual = e.target.value; campanhas(); };
@@ -480,6 +501,24 @@
       if (!rows.length) throw new Error('Nenhuma linha com e-mail válido');
       const { error: e } = await sb.from('campanha_contatos').upsert(rows, { onConflict: 'campanha,email', ignoreDuplicates: true });
       if (e) throw e; campAtual = camp; DC.toast(rows.length + ' contato(s) adicionados'); campanhas();
+    });
+    const linkCad = (tk) => `${location.origin}/api/campanha?ir=${tk}`;
+    const upWa = () => { $('#waGrupoAbre').href = DC.wa('', $('#waGrupo').value); };
+    upWa(); $('#waGrupo').oninput = upWa;
+    $$('[data-copia]').forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText($('#' + b.dataset.copia).value); DC.toast('Copiado. É só colar no WhatsApp.'); } catch (e) { DC.toast('Selecione o texto e copie manualmente', true); } }));
+    $$('[data-waabre]').forEach((b) => (b.onclick = async () => {
+      const c = W.find((x) => x.id === b.dataset.waabre); const primeiro = (c.nome || '').split(' ')[0];
+      const txt = $('#waInd').value.replace(/\{nome\}/g, primeiro).replace(/Olá, !/g, 'Olá!') + '\n\n👉 ' + linkCad(c.token) + '\n\n(Se não quiser receber mensagens nossas, responda SAIR.)';
+      window.open(DC.wa(c.telefone, txt), '_blank', 'noopener');
+      if (c.status === 'pendente') { await sb.from('campanha_contatos').update({ status: 'enviado', enviado_em: new Date().toISOString() }).eq('id', c.id); setTimeout(campanhas, 800); }
+    }));
+    $$('[data-wasai]').forEach((b) => (b.onclick = () => DC.busy(b, async () => { const { error: e } = await sb.from('campanha_contatos').update({ status: 'descadastrado' }).eq('id', b.dataset.wasai); if (e) throw e; DC.toast('Marcado: não enviar mais'); campanhas(); })));
+    $('#waAddOk').onclick = () => DC.busy($('#waAddOk'), async () => {
+      const rows = $('#waAdd').value.split('\n').map((l) => l.split(/[;\t]/).map((x) => x.trim())).map(([nome, cel, cargo]) => ({ nome, tel: DC.tel(cel || ''), cargo }))
+        .filter((x) => x.tel).map((x) => ({ campanha: campAtual, canal: 'whatsapp', nome: x.nome || '', telefone: x.tel, cargo: x.cargo || '', origem: 'manual' }));
+      if (!rows.length) throw new Error('Nenhuma linha com celular válido (DDD + número)');
+      const { error: e } = await sb.from('campanha_contatos').upsert(rows, { onConflict: 'campanha,telefone', ignoreDuplicates: true });
+      if (e) throw e; DC.toast(rows.length + ' contato(s) de WhatsApp adicionados'); campanhas();
     });
     $('#cpEnv').onclick = () => DC.busy($('#cpEnv'), async () => {
       guarda();
