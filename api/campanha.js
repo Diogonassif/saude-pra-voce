@@ -30,18 +30,23 @@ export default handler(async (req, res) => {
   const ir = q.get('ir'), sair = q.get('sair');
   if (req.method === 'GET' || (req.method === 'POST' && sair)) {   // POST com ?sair = descadastro de um clique do Gmail/Outlook
     if (ir && isUuid(ir)) {
-      await admin(`campanha_contatos?token=eq.${ir}&clicou_em=is.null`, { method: 'PATCH', body: { clicou_em: new Date().toISOString() } }).catch(() => null);
+      // antivírus de e-mail corporativo abrem os links segundos depois da entrega: clique só conta depois de 60 s do envio
+      const c = await one(`campanha_contatos?token=eq.${ir}&select=id,enviado_em,clicou_em`).catch(() => null);
+      if (c && !c.clicou_em && (!c.enviado_em || Date.now() - new Date(c.enviado_em) > 60e3))
+        await admin(`campanha_contatos?id=eq.${c.id}`, { method: 'PATCH', body: { clicou_em: new Date().toISOString() } }).catch(() => null);
       res.statusCode = 302; res.setHeader('location', '/profissional.html?utm_source=email&utm_campaign=convite'); return res.end();
     }
     if (sair && isUuid(sair)) {
       const c = await one(`campanha_contatos?token=eq.${sair}&select=id,email`);
+      const confirmou = req.method === 'POST';   // o link do e-mail só abre a confirmação; quem descadastra é o botão (ou o "cancelar inscrição" do Gmail/Outlook, que usa POST)
+      res.statusCode = 200; res.setHeader('content-type', 'text/html; charset=utf-8');
+      if (!confirmou) return res.end(pagina('Não quer mais receber?', `Toque no botão para não receber mais e-mails de convite da Saúde Pra Você.</p><form method="post" action="/api/campanha?sair=${sair}"><button style="background:#17705F;color:#fff;border:0;border-radius:12px;padding:14px 22px;font-weight:700;font-size:16px;cursor:pointer">Não quero mais receber</button></form><p>`));
       if (c) {
         if (c.email) {
           await admin('descadastros?on_conflict=email', { method: 'POST', prefer: 'resolution=ignore-duplicates', body: { email: c.email.toLowerCase() } });
           await admin(`campanha_contatos?email=eq.${encodeURIComponent(c.email)}`, { method: 'PATCH', body: { status: 'descadastrado' } });
         } else await admin(`campanha_contatos?id=eq.${c.id}`, { method: 'PATCH', body: { status: 'descadastrado' } });
       }
-      res.statusCode = 200; res.setHeader('content-type', 'text/html; charset=utf-8');
       return res.end(pagina('Pronto, você foi descadastrado', 'Você não vai receber mais e-mails de convite da Saúde Pra Você. Desculpe o incômodo.'));
     }
     return send(res, 200, { ok: true, email: !!env('RESEND_API_KEY') });
