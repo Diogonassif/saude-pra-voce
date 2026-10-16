@@ -20,7 +20,7 @@ function montar(corpo, c, url) {
     <div style="background:#0E2B36;color:#fff;padding:18px 22px;border-radius:14px 14px 0 0;font-size:20px;font-weight:800">Saúde <span style="color:#7FE0C8">Pra Você</span></div>
     <div style="border:1px solid #DDE7E9;border-top:0;border-radius:0 0 14px 14px;padding:22px">${paragrafos}
       <p style="margin:22px 0"><a href="${linkIr}" style="background:#17705F;color:#fff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;display:inline-block">Quero me cadastrar grátis</a></p>
-      <p style="font-size:12px;color:#7A9298;margin-top:26px">Você recebeu este convite porque atua na área da saúde em Franca e região. Se não quiser receber mais nossos e-mails, <a href="${linkSair}" style="color:#7A9298">clique aqui</a>.</p>
+      <p style="font-size:12px;color:#7A9298;margin-top:26px">Você recebeu este convite porque atua na área da saúde em ${escH(c.cidade || 'sua cidade')} e região. Se não quiser receber mais nossos e-mails, <a href="${linkSair}" style="color:#7A9298">clique aqui</a>.</p>
     </div></div>`;
 }
 
@@ -63,7 +63,7 @@ export default handler(async (req, res) => {
     const corpo = String(b.corpo || '').trim().slice(0, 4000);
     if (!campanha || !assunto || corpo.length < 20) throw fail(400, 'Preencha o assunto e o texto do convite');
     const limite = Math.min(25, Math.max(1, +b.limite || 25));
-    const pend = (await admin(`campanha_contatos?campanha=eq.${encodeURIComponent(campanha)}&canal=eq.email&status=eq.pendente&email=not.is.null&select=id,nome,email,token&order=created_at&limit=${limite}`)) || [];
+    const pend = (await admin(`campanha_contatos?campanha=eq.${encodeURIComponent(campanha)}&canal=eq.email&status=eq.pendente&email=not.is.null&select=id,nome,email,token,cidade&order=created_at&limit=${limite}`)) || [];
     const fora = new Set(((await admin('descadastros?select=email')) || []).map((x) => x.email.toLowerCase()));
     let enviados = 0, erros = 0;
     for (const c of pend) {
@@ -79,7 +79,7 @@ export default handler(async (req, res) => {
   }
 
   if (b.acao === 'previa') {
-    const c = { nome: String(b.nome || 'Maria'), token: '00000000-0000-0000-0000-000000000000' };
+    const c = { nome: String(b.nome || 'Maria'), cidade: String(b.cidade || '').slice(0, 60), token: '00000000-0000-0000-0000-000000000000' };
     return send(res, 200, { html: montar(b.corpo, c, url) });
   }
   throw fail(400, 'Ação desconhecida');
