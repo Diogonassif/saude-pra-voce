@@ -30,9 +30,9 @@ export default handler(async (req, res) => {
   const ir = q.get('ir'), sair = q.get('sair');
   if (req.method === 'GET' || (req.method === 'POST' && sair)) {   // POST com ?sair = descadastro de um clique do Gmail/Outlook
     if (ir && isUuid(ir)) {
-      // antivírus de e-mail corporativo abrem os links segundos depois da entrega: clique só conta depois de 60 s do envio
+      // antivírus de e-mail corporativo abrem os links segundos depois da entrega: clique só conta depois de 5 min do envio
       const c = await one(`campanha_contatos?token=eq.${ir}&select=id,enviado_em,clicou_em`).catch(() => null);
-      if (c && !c.clicou_em && (!c.enviado_em || Date.now() - new Date(c.enviado_em) > 60e3))
+      if (c && !c.clicou_em && (!c.enviado_em || Date.now() - new Date(c.enviado_em) > 5 * 60e3))
         await admin(`campanha_contatos?id=eq.${c.id}`, { method: 'PATCH', body: { clicou_em: new Date().toISOString() } }).catch(() => null);
       res.statusCode = 302; res.setHeader('location', '/profissional.html?utm_source=email&utm_campaign=convite'); return res.end();
     }
