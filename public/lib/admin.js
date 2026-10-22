@@ -102,12 +102,15 @@
     const novos30 = P.filter((p) => new Date(p.created_at) > d30);
     const dt = (iso) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     const PAPEL = { pro: 'Profissional', cliente: 'Contratante', admin: 'Gestão' };
+    const d7 = Date.now() - 7 * 864e5;
+    const semBV = P.filter((p) => p.role === 'pro' && BVm[p.id] && !['enviado', 'manual'].includes(BVm[p.id])).length;
+    const aberto = (k) => { try { return localStorage.getItem('dc_open_' + k) === '1'; } catch (e) { return false; } };
 
     app.innerHTML = `<div class="head"><div><h1>Visão geral</h1><p>${mesNome(mesAtual)} · ${C.length} contratação(ões) no total · ${P.length} conta(s)</p></div><div class="row"><button class="btn btn-sm" data-convite="cliente">📲 Convidar contratante</button><button class="btn btn-sm btn-green" data-convite="pro">📲 Convidar profissional</button></div></div>
       ${alertaMind(din.devido)}
-      <div class="card col"><h2>Novos cadastros</h2>${P.length ? `<div class="list small">${P.slice(0, 8).map((p) => { const bv = BVm[p.id]; const feito = ['enviado', 'manual'].includes(bv);
+      <details class="card col" id="novosCad" ${aberto('novosCad') ? 'open' : ''}><summary style="cursor:pointer;list-style:revert"><h2 style="display:inline">Novos cadastros</h2> <span class="small mute">${P.filter((p) => new Date(p.created_at) > d7).length} nos últimos 7 dias${semBV ? ` · <span class="tag t-amber">${semBV} sem boas-vindas</span>` : ''}</span></summary>${P.length ? `<div class="list small" style="margin-top:12px">${P.slice(0, 8).map((p) => { const bv = BVm[p.id]; const feito = ['enviado', 'manual'].includes(bv);
           return `<div class="li"><button type="button" class="grow linha" style="all:unset;cursor:pointer;flex:1" data-conta="${p.id}" data-role="${p.role || ''}"><b>${esc(p.nome)}</b><br><span class="mute">${esc(PAPEL[p.role] || 'Sem perfil ainda')} · ${esc(DC.telBonito(p.telefone))} · ${dt(p.created_at)}</span></button>
-            ${['pro', 'cliente'].includes(p.role) && p.telefone ? `${feito ? '<span class="tag t-green">Boas-vindas enviadas</span>' : ''}<button class="btn btn-sm ${feito ? 'btn-ghost' : 'btn-green'}" data-bvdar="${p.id}">👋 ${feito ? 'Mandar de novo' : 'Dar as boas-vindas'}</button>` : ''}</div>`; }).join('')}</div>` : '<p class="small mute">Ninguém ainda.</p>'}</div>
+            ${['pro', 'cliente'].includes(p.role) && p.telefone ? `${feito ? '<span class="tag t-green">Boas-vindas enviadas</span>' : ''}<button class="btn btn-sm ${feito ? 'btn-ghost' : 'btn-green'}" data-bvdar="${p.id}">👋 ${feito ? 'Mandar de novo' : 'Dar as boas-vindas'}</button>` : ''}</div>`; }).join('')}</div>` : '<p class="small mute">Ninguém ainda.</p>'}</details>
       <div class="card col"><h2>Precisa de atenção</h2>${at.length ? `<div class="list">${at.map(([n, t, go, cor]) => `<button type="button" class="li linha" data-ir="${go}"><span class="tag t-${cor}" style="min-width:34px;text-align:center">${n}</span><span class="grow">${t}</span><span class="mute">Abrir →</span></button>`).join('')}</div>` : '<p class="small mute">Tudo em dia. Nenhuma pendência agora.</p>'}</div>
       <div class="grid2">
         <div class="card kpi go" data-go="financeiro"><span class="small mute">Pago pelos contratantes no mês</span><div class="v">${brl(m.total, 2)}</div><span class="small mute">${m.n} pagamento(s) · total geral ${brl(tot.total, 2)}</span></div>
@@ -130,6 +133,7 @@
     $$('[data-ir]').forEach((b) => (b.onclick = () => irPara(b.dataset.ir)));
     $$('[data-fst]').forEach((b) => (b.onclick = () => irPara('contratacoes:' + b.dataset.fst)));
     $$('[data-abre]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.abre, 'admin', visao)));
+    $('#novosCad').ontoggle = (e) => { try { localStorage.setItem('dc_open_novosCad', e.target.open ? '1' : '0'); } catch (x) {} };
     $$('[data-bvdar]').forEach((b) => (b.onclick = async () => {
       const p = P.find((y) => y.id === b.dataset.bvdar); const nome = (p.nome || '').trim().split(/\s+/)[0];
       window.open(DC.wa(p.telefone, p.role === 'pro' ? DC.msgBoasVindasPro(nome) : DC.msgBoasVindasCli(nome)), '_blank', 'noopener');
