@@ -57,15 +57,21 @@
   }
   document.addEventListener('click', (e) => { const b = e.target.closest('[data-convite]'); if (b) convidar(b.dataset.convite); });
 
+  // mensagens de boas-vindas (WhatsApp) para quem acabou de se cadastrar
+  DC.msgBoasVindasPro = (nome) => `Olá${nome ? ', ' + nome : ''}! Seja muito bem-vindo(a) à *Saúde Pra Você* 💚\n\nQue bom ter você com a gente! Preparamos um vídeo de 1 minuto explicando como tudo funciona:\n🎬 ${location.origin}/boas-vindas.html\n\nEm resumo:\n✅ Você define o *seu próprio valor* (a taxa da plataforma não sai do seu bolso)\n✅ Escolhe os pedidos que aceita, sugere outra data ou negocia o valor pelo chat\n✅ Recebe pelo app, direto na sua conta Mercado Pago\n✅ Pode fazer atendimentos avulsos, contrato fixo com clínicas ou vaga CLT\n\n*Para aparecer no catálogo:*\n1️⃣ Coloque sua foto, especialidade e experiência\n2️⃣ Defina seus valores (técnico(a) e enfermeiro(a) informam o COREN)\n3️⃣ Conecte o Mercado Pago em Recebimentos\n4️⃣ Envie seus documentos e ganhe o selo verificado\n\nQualquer dúvida, é só responder esta mensagem.\n\n🤝 *Indique a Saúde Pra Você!*\nConhece colegas cuidadores, técnicos ou enfermeiros? Mande para eles: ${location.origin}/profissional.html\nConhece uma família ou clínica que precisa de cuidado? Mande para ela: ${location.origin}/contratante.html`;
+  DC.msgBoasVindasCli = (nome) => `Olá${nome ? ', ' + nome : ''}! Seja muito bem-vindo(a) à *Saúde Pra Você* 💚\n\nAqui você encontra cuidadores, técnicos de enfermagem, enfermeiros e acompanhantes hospitalares da região, com perfil, experiência e valor à vista.\n\n📖 Veja como funciona: ${location.origin}/contratante.html\n\n✅ Escolha o profissional no catálogo e o período\n✅ Pague pelo app com Pix ou cartão, com segurança\n✅ Não achou quem precisa? Faça um pedido e a nossa central encontra para você\n\nQualquer dúvida, é só responder esta mensagem.\n\n🤝 *Indique a Saúde Pra Você!* Conhece uma família ou clínica que precisa de cuidado? Mande: ${location.origin}/contratante.html\nConhece um profissional de saúde? Mande: ${location.origin}/profissional.html`;
+
   // ------------------------------------------------------------------ visão geral
   async function visao() {
-    const [pr, pf, ne, ct, din] = await Promise.all([
+    const [pr, pf, ne, ct, din, bvq] = await Promise.all([
       sb.from('pros').select('user_id,nome,especialidade,publicado,verificado,coren,coren_status,valor_hora,created_at'),
       sb.from('profiles').select('id,nome,role,telefone,email,created_at').order('created_at', { ascending: false }),
       sb.from('necessidades').select('id,codigo,status,especialidade,cliente_nome,cidade,inicio,created_at').order('created_at', { ascending: false }),
       sb.from('contratacoes').select('id,codigo,status,cliente_nome,pro_nome,especialidade,modalidade,inicio,fim,proposta,created_at,updated_at,contratacao_cliente(total),contratacao_split(pro,debcare,mind)').order('created_at', { ascending: false }).limit(1000),
       dinheiro(),
+      sb.from('boas_vindas').select('user_id,whatsapp_status'),
     ]);
+    const BVm = Object.fromEntries(((bvq && bvq.data) || []).map((b) => [b.user_id, b.whatsapp_status]));
     const pros = pr.data || [], P = pf.data || [], N = ne.data || [], C = ct.data || [];
     const m = din.meses[mesAtual] || { total: 0, debcare: 0, mind: 0, n: 0 };
     const tot = Object.values(din.meses).reduce((a, x) => ({ total: a.total + x.total, debcare: a.debcare + x.debcare, mind: a.mind + x.mind, n: a.n + x.n }), { total: 0, debcare: 0, mind: 0, n: 0 });
@@ -99,6 +105,9 @@
 
     app.innerHTML = `<div class="head"><div><h1>Visão geral</h1><p>${mesNome(mesAtual)} · ${C.length} contratação(ões) no total · ${P.length} conta(s)</p></div><div class="row"><button class="btn btn-sm" data-convite="cliente">📲 Convidar contratante</button><button class="btn btn-sm btn-green" data-convite="pro">📲 Convidar profissional</button></div></div>
       ${alertaMind(din.devido)}
+      <div class="card col"><h2>Novos cadastros</h2>${P.length ? `<div class="list small">${P.slice(0, 8).map((p) => { const bv = BVm[p.id]; const feito = ['enviado', 'manual'].includes(bv);
+          return `<div class="li"><button type="button" class="grow linha" style="all:unset;cursor:pointer;flex:1" data-conta="${p.id}" data-role="${p.role || ''}"><b>${esc(p.nome)}</b><br><span class="mute">${esc(PAPEL[p.role] || 'Sem perfil ainda')} · ${esc(DC.telBonito(p.telefone))} · ${dt(p.created_at)}</span></button>
+            ${['pro', 'cliente'].includes(p.role) && p.telefone ? `${feito ? '<span class="tag t-green">Boas-vindas enviadas</span>' : ''}<button class="btn btn-sm ${feito ? 'btn-ghost' : 'btn-green'}" data-bvdar="${p.id}">👋 ${feito ? 'Mandar de novo' : 'Dar as boas-vindas'}</button>` : ''}</div>`; }).join('')}</div>` : '<p class="small mute">Ninguém ainda.</p>'}</div>
       <div class="card col"><h2>Precisa de atenção</h2>${at.length ? `<div class="list">${at.map(([n, t, go, cor]) => `<button type="button" class="li linha" data-ir="${go}"><span class="tag t-${cor}" style="min-width:34px;text-align:center">${n}</span><span class="grow">${t}</span><span class="mute">Abrir →</span></button>`).join('')}</div>` : '<p class="small mute">Tudo em dia. Nenhuma pendência agora.</p>'}</div>
       <div class="grid2">
         <div class="card kpi go" data-go="financeiro"><span class="small mute">Pago pelos contratantes no mês</span><div class="v">${brl(m.total, 2)}</div><span class="small mute">${m.n} pagamento(s) · total geral ${brl(tot.total, 2)}</span></div>
@@ -114,7 +123,6 @@
         <div class="card col"><h2>Últimas contratações</h2>${C.length ? `<div class="list small">${C.slice(0, 8).map((c) => `<button type="button" class="li linha" data-abre="${c.id}"><span class="grow"><b>#${c.codigo}</b> ${esc(c.cliente_nome)} → ${esc(c.pro_nome)}<br><span class="mute">${esc(DC.espec(c.especialidade))} · ${DC.periodo(c)} · pedido em ${dt(c.created_at)}</span></span><span style="text-align:right">${DC.stTag(c.status, c.tipo)}<br><b>${brl(val(c), 2)}</b></span></button>`).join('')}</div>` : '<p class="small mute">Nenhuma contratação ainda.</p>'}</div>
         <div class="card col"><h2>Pedidos na central</h2>${abertas.length ? `<div class="list small">${abertas.slice(0, 6).map((n) => `<button type="button" class="li linha" data-ir="central"><span class="grow"><b>#${n.codigo}</b> ${esc(n.cliente_nome)} · ${esc(DC.espec(n.especialidade))}<br><span class="mute">${esc(n.cidade || '')}${n.inicio ? ' · início ' + DC.data(n.inicio) : ''} · aberto em ${dt(n.created_at)}</span></span><span class="tag t-amber">${n.status === 'em_busca' ? 'EM BUSCA' : 'ABERTO'}</span></button>`).join('')}</div>` : '<p class="small mute">Nenhum pedido aberto.</p>'}</div>
       </div><div class="side">
-        <div class="card col"><h2>Novos cadastros</h2>${P.length ? `<div class="list small">${P.slice(0, 8).map((p) => `<button type="button" class="li linha" data-conta="${p.id}" data-role="${p.role || ''}"><span class="grow"><b>${esc(p.nome)}</b><br><span class="mute">${esc(PAPEL[p.role] || 'Sem perfil ainda')} · ${esc(DC.telBonito(p.telefone))}</span></span><span class="mute">${dt(p.created_at)}</span></button>`).join('')}</div>` : '<p class="small mute">Ninguém ainda.</p>'}</div>
         <div class="card col"><h2>Profissionais por tipo</h2><div class="list small">${porEsp.map(([n, t, pub, ped]) => `<div class="li"><span class="grow">${esc(n)}</span><span style="text-align:right"><b>${pub}</b> no catálogo de ${t}${ped ? `<br><span class="tag t-amber">${ped} pedido(s) na central</span>` : ''}</span></div>`).join('')}</div></div>
       </div></div>`;
     $$('[data-go]').forEach((b) => (b.onclick = () => { location.hash = b.dataset.go; }));
@@ -122,6 +130,11 @@
     $$('[data-ir]').forEach((b) => (b.onclick = () => irPara(b.dataset.ir)));
     $$('[data-fst]').forEach((b) => (b.onclick = () => irPara('contratacoes:' + b.dataset.fst)));
     $$('[data-abre]').forEach((b) => (b.onclick = () => DC.abrirContratacao(b.dataset.abre, 'admin', visao)));
+    $$('[data-bvdar]').forEach((b) => (b.onclick = async () => {
+      const p = P.find((y) => y.id === b.dataset.bvdar); const nome = (p.nome || '').trim().split(/\s+/)[0];
+      window.open(DC.wa(p.telefone, p.role === 'pro' ? DC.msgBoasVindasPro(nome) : DC.msgBoasVindasCli(nome)), '_blank', 'noopener');
+      if (p.role === 'pro') { await DC.api('/api/boas-vindas', { acao: 'manual', user_id: p.id }).catch(() => null); setTimeout(visao, 800); }
+    }));
     $$('[data-conta]').forEach((b) => (b.onclick = async () => {
       const id = b.dataset.conta, role = b.dataset.role;
       if (role === 'pro') {
@@ -506,7 +519,7 @@
     ['#cpAs', '#cpCo', '#cpRe'].forEach((s) => ($(s).oninput = guarda));
     $$('[data-bvwa]').forEach((b) => (b.onclick = async () => {
       const r = BV.find((x) => x.user_id === b.dataset.bvwa); const pf = r.profiles || {}; const nome = (pf.nome || '').trim().split(/\s+/)[0];
-      const txt = `Olá${nome ? ', ' + nome : ''}! Seja muito bem-vindo(a) à *Saúde Pra Você* 💚\n\nQue bom ter você com a gente! Preparamos um vídeo de 1 minuto explicando como tudo funciona:\n🎬 ${location.origin}/boas-vindas.html\n\nEm resumo:\n✅ Você define o *seu próprio valor* (a taxa da plataforma não sai do seu bolso)\n✅ Escolhe os pedidos que aceita, sugere outra data ou negocia o valor pelo chat\n✅ Recebe pelo app, direto na sua conta Mercado Pago\n✅ Pode fazer atendimentos avulsos, contrato fixo com clínicas ou vaga CLT\n\n*Para aparecer no catálogo:*\n1️⃣ Coloque sua foto, especialidade e experiência\n2️⃣ Defina seus valores (técnico(a) e enfermeiro(a) informam o COREN)\n3️⃣ Conecte o Mercado Pago em Recebimentos\n4️⃣ Envie seus documentos e ganhe o selo verificado\n\nQualquer dúvida, é só responder esta mensagem.\n\n🤝 *Indique a Saúde Pra Você!*\nConhece colegas cuidadores, técnicos ou enfermeiros? Mande para eles: ${location.origin}/profissional.html\nConhece uma família ou clínica que precisa de cuidado? Mande para ela: ${location.origin}/contratante.html`;
+      const txt = DC.msgBoasVindasPro(nome);
       window.open(DC.wa(pf.telefone, txt), '_blank', 'noopener');
       await DC.api('/api/boas-vindas', { acao: 'manual', user_id: r.user_id }).catch(() => null); setTimeout(campanhas, 800);
     }));
