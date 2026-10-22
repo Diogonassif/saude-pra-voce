@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boas-vindas · Saúde Pra Você</title>
+<meta name="description" content="Bem-vindo(a) à Saúde Pra Você! Veja em 1 minuto como o app funciona para o profissional de saúde.">
+<meta property="og:type" content="video.other">
+<meta property="og:title" content="Bem-vindo(a) à Saúde Pra Você!">
+<meta property="og:description" content="Em 1 minuto: você define o seu valor, escolhe os pedidos e recebe pelo app.">
+<meta property="og:image" content="https://saudepravoce.com/videos/poster-boas-vindas.jpg">
+<meta property="og:video" content="https://saudepravoce.com/videos/boas-vindas-profissional.mp4">
+<meta property="og:video:type" content="video/mp4">
+<meta name="theme-color" content="#0E2B36">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/lib/dc.css">
+<style>
+body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 60%, #08202A 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.box { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 18px; }
+.box .brand { justify-content: center; font-size: 30px; }
+.box .brand .mk svg { width: 40px; height: 40px; }
+.lead { color: #C5DADD; text-align: center; font-size: 15px; }
+video { width: 100%; max-width: 380px; align-self: center; aspect-ratio: 9 / 16; border-radius: 18px; background: #0E2B36; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.passos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+</style>
+</head>
+<body>
+<main class="box">
+  <a class="brand" href="/" id="marca"></a>
+  <p class="lead">Bem-vindo(a)! Veja em 1 minuto como a Saúde Pra Você funciona.</p>
+  <video src="/videos/boas-vindas-profissional.mp4" poster="/videos/poster-boas-vindas.jpg" controls playsinline preload="metadata"></video>
+  <section class="card col">
+    <h2>Deixe seu perfil pronto</h2>
+    <ol class="passos small">
+      <li>Foto (uma selfie serve), especialidade e experiência</li>
+      <li>Seus valores. Técnico(a) e enfermeiro(a) informam o COREN</li>
+      <li>Conecte o Mercado Pago em <b>Recebimentos</b></li>
+      <li>Envie os documentos para ganhar o selo verificado</li>
+    </ol>
+    <a class="btn btn-green btn-block" href="/pro.html#perfil">Completar meu perfil</a>
+    <a class="btn btn-ghost btn-block" id="central" target="_blank" rel="noopener" hidden>Falar com a central pelo WhatsApp</a>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/lib/config.js"></script>
+<script src="/lib/dc.js"></script>
+<script>
+(function () {
+  DC.$('#marca').innerHTML = DC.marca();
+  const liga = () => { const u = DC.centralWa && DC.centralWa('Olá! Acabei de me cadastrar como profissional na Saúde Pra Você e tenho uma dúvida.'); if (u) { const a = DC.$('#central'); a.href = u; a.hidden = false; } };
+  DC.sb.from('config').select('key,value').eq('key', 'central_whatsapp').then((r) => { DC.cfg = Object.fromEntries(((r && r.data) || []).map((x) => [x.key, x.value])); liga(); });
+})();
+</script>
+</body>
+</html>

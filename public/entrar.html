@@ -183,6 +183,8 @@ body { background: radial-gradient(900px 700px at 70% 10%, #17495A 0%, #0E2B36 6
   $('#continuar').onclick = () => DC.busy($('#continuar'), async () => {
     const { error } = await sb.rpc('escolher_papel', { papel });
     if (error) throw error;
+    // vídeo de boas-vindas (WhatsApp + e-mail); não segura o cadastro se demorar
+    if (papel === 'pro') await Promise.race([DC.api('/api/boas-vindas', {}).catch(() => null), new Promise((r) => setTimeout(r, 2500))]);
     location.replace(papel === 'pro' ? '/pro.html#perfil' : '/cliente.html');
   });
 })();

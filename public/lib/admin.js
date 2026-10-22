@@ -434,10 +434,13 @@
     ind: 'Olá, {nome}! Tudo bem? Aqui é da Saúde Pra Você, um app de {cidade} que liga famílias e clínicas a cuidadores, técnicos de enfermagem, enfermeiros e fisioterapeutas.\n\nNo app você define o seu próprio valor e a sua agenda, e recebe pedidos com pagamento garantido. O cadastro é grátis e leva 3 minutos:' };
   let campAtual = null;
   async function campanhas() {
-    const [{ data, error }, st] = await Promise.all([
+    const [{ data, error }, st, bvr, bst] = await Promise.all([
       sb.from('campanha_contatos').select('*').order('created_at').limit(2000),
       fetch('/api/campanha').then((r) => r.json()).catch(() => ({})),
+      sb.from('boas_vindas').select('*, profiles(nome, telefone, email)').order('created_at', { ascending: false }).limit(30),
+      fetch('/api/boas-vindas').then((r) => r.json()).catch(() => ({})),
     ]);
+    const BV = (bvr && bvr.data) || [];
     if (error) throw error;
     const L = data || [];
     const nomes = [...new Set(L.map((c) => c.campanha))];
@@ -451,10 +454,18 @@
     let txt = comCidade(CAMP_TXT); try { txt = Object.assign(txt, JSON.parse(localStorage.getItem(chaveTxt) || (cidade === 'Franca' ? localStorage.getItem('dc_camp_txt') : '') || '{}')); } catch (e) {}
     const WA = comCidade(WA_TXT);
     const img = cidade === 'Ribeirão Preto' ? 'ribeirao-preto' : 'franca';
+    const BVST = { pendente: ['Pendente', 't-amber'], enviando: ['Enviando', 't-blue'], enviado: ['Enviado', 't-green'], manual: ['Enviado à mão', 't-green'], erro: ['Erro', 't-red'], sem_email: ['Sem e-mail', 't-gray'] };
     const ST = { pendente: ['Pendente', 't-amber'], enviado: ['Enviado', 't-blue'], erro: ['Erro', 't-red'], descadastrado: ['Descadastrou', 't-gray'], cadastrou: ['Cadastrou', 't-green'] };
     app.innerHTML = `<div class="head"><div><h1>Campanhas</h1><p>Convites por e-mail enviados pelo app como <b>convite@saudepravoce.com</b>, com link de descadastro (LGPD).</p></div>
         ${nomes.length > 1 ? `<select class="in" id="cpSel" style="width:auto">${nomes.map((x) => `<option ${x === campAtual ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}</div>
       ${st.email ? '' : '<div class="banner">⚠️ O envio de e-mails do app ainda não está ativo: falta configurar o Resend com o domínio saudepravoce.com. Você já pode montar a lista e o texto; o botão de enviar funciona assim que o Resend estiver ligado.</div>'}
+      <div class="card col"><h2>🎬 Boas-vindas para novos profissionais</h2>
+        <p class="small mute">Quem se cadastra como profissional recebe o <a href="/boas-vindas.html" target="_blank" rel="noopener">vídeo de boas-vindas</a> por e-mail na hora${bst.whatsapp ? ' e pelo WhatsApp oficial' : ''}. ${bst.whatsapp ? '' : '<b>O WhatsApp automático ainda não está ligado</b> (precisa da API oficial do WhatsApp com o modelo de mensagem aprovado). Até lá, toque em "Mandar no WhatsApp": a mensagem abre pronta com o link do vídeo.'}</p>
+        <div class="tbl-box"><table class="tbl small"><thead><tr><th>Profissional</th><th>Cadastro</th><th>WhatsApp</th><th>E-mail</th><th></th></tr></thead><tbody>
+          ${BV.map((b) => { const pf = b.profiles || {}; const t = (s) => { const x = BVST[s] || [s, 't-gray']; return `<span class="tag ${x[1]}">${x[0]}</span>`; };
+            return `<tr><td><b>${esc(pf.nome || '')}</b><br><span class="mute">${esc(DC.telBonito(pf.telefone || ''))}</span></td><td>${DC.data(b.created_at)}</td><td>${t(b.whatsapp_status)}${b.whatsapp_erro ? `<br><span class="tiny mute">${esc(b.whatsapp_erro)}</span>` : ''}</td><td>${t(b.email_status)}</td>
+              <td class="row">${pf.telefone ? `<button class="btn btn-sm btn-green" data-bvwa="${b.user_id}">${['enviado', 'manual'].includes(b.whatsapp_status) ? 'Mandar de novo' : 'Mandar no WhatsApp'}</button>` : ''}${(bst.whatsapp || bst.email) && (b.whatsapp_status === 'erro' || b.email_status === 'erro') ? `<button class="btn btn-sm btn-ghost" data-bvre="${b.user_id}">Tentar de novo</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Nenhum profissional novo ainda.</td></tr>'}
+        </tbody></table></div></div>
       <div class="grid2">
         <div class="card kpi"><span class="small mute">${esc(campAtual)}</span><div class="v">${C.length}</div><span class="small mute">contatos</span></div>
         <div class="card kpi"><span class="small mute">Pendentes</span><div class="v">${n('pendente')}</div><span class="small mute">${n('enviado')} enviados · ${n('erro')} com erro</span></div>
@@ -493,6 +504,13 @@
           <button class="btn btn-sm" id="waAddOk">Adicionar</button></div></details></div>`;
     const guarda = () => { try { localStorage.setItem(chaveTxt, JSON.stringify({ assunto: $('#cpAs').value, corpo: $('#cpCo').value, responder: $('#cpRe').value })); } catch (e) {} };
     ['#cpAs', '#cpCo', '#cpRe'].forEach((s) => ($(s).oninput = guarda));
+    $$('[data-bvwa]').forEach((b) => (b.onclick = async () => {
+      const r = BV.find((x) => x.user_id === b.dataset.bvwa); const pf = r.profiles || {}; const nome = (pf.nome || '').trim().split(/\s+/)[0];
+      const txt = `Olá${nome ? ', ' + nome : ''}! Seja muito bem-vindo(a) à *Saúde Pra Você* 💚\n\nQue bom ter você com a gente! Preparamos um vídeo de 1 minuto explicando como tudo funciona:\n🎬 ${location.origin}/boas-vindas.html\n\nEm resumo:\n✅ Você define o *seu próprio valor* (a taxa da plataforma não sai do seu bolso)\n✅ Escolhe os pedidos que aceita, sugere outra data ou negocia o valor pelo chat\n✅ Recebe pelo app, direto na sua conta Mercado Pago\n✅ Pode fazer atendimentos avulsos, contrato fixo com clínicas ou vaga CLT\n\n*Para aparecer no catálogo:*\n1️⃣ Coloque sua foto, especialidade e experiência\n2️⃣ Defina seus valores (técnico(a) e enfermeiro(a) informam o COREN)\n3️⃣ Conecte o Mercado Pago em Recebimentos\n4️⃣ Envie seus documentos e ganhe o selo verificado\n\nQualquer dúvida, é só responder esta mensagem.\n\n🤝 *Indique a Saúde Pra Você!*\nConhece colegas cuidadores, técnicos ou enfermeiros? Mande para eles: ${location.origin}/profissional.html\nConhece uma família ou clínica que precisa de cuidado? Mande para ela: ${location.origin}/contratante.html`;
+      window.open(DC.wa(pf.telefone, txt), '_blank', 'noopener');
+      await DC.api('/api/boas-vindas', { acao: 'manual', user_id: r.user_id }).catch(() => null); setTimeout(campanhas, 800);
+    }));
+    $$('[data-bvre]').forEach((b) => (b.onclick = () => DC.busy(b, async () => { await DC.api('/api/boas-vindas', { acao: 'enviar', user_id: b.dataset.bvre }); DC.toast('Enviado de novo'); campanhas(); })));
     if ($('#cpSel')) $('#cpSel').onchange = (e) => { campAtual = e.target.value; campanhas(); };
     $('#cpPrev').onclick = () => DC.busy($('#cpPrev'), async () => {
       const r = await DC.api('/api/campanha', { acao: 'previa', corpo: $('#cpCo').value, nome: (C[0] && C[0].nome) || 'Maria', cidade: (C[0] && C[0].cidade) || cidade });
